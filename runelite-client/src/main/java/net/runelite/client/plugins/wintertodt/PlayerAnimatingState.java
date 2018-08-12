@@ -1,0 +1,15 @@
+package net.runelite.client.plugins.wintertodt;
+
+public enum PlayerAnimatingState {
+    IDLE,
+    IDLE_AFTER_WOODCUTTING,
+    IDLE_AFTER_FIREMAKING_TRANSIENT_1,
+    IDLE_AFTER_FIREMAKING_TRANSIENT_2,
+    IDLE_AFTER_FIREMAKING,
+    WOODCUTTING,
+    FIREMAKING,
+    REPAIRING,
+    RELIGHTING_BRAZIER,
+    UNKNOWN
+}
+
