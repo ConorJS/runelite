@@ -82,7 +82,7 @@ public class HitpointsGlowOverlay extends Overlay
             return;
         }
 
-        if (config.)
+
         int alpha = this.renderCycle * 2;
         if (alpha < 0)
         {
