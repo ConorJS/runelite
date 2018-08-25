@@ -29,6 +29,16 @@ public interface HitpointsGlowConfig extends Config
 
     @ConfigItem(
             position = 3,
+            keyName = "rainbowGlow",
+            name = "Character rainbow glow",
+            description = "Rainbow glow for player highlighting"
+    )
+    default boolean enableRainbowGlow() {
+        return false;
+    }
+
+    @ConfigItem(
+            position = 4,
             keyName = "screenShading",
             name = "Screen shading",
             description = "Highlights the entire screen red, intensity increasing with lost HP HP"
@@ -38,7 +48,7 @@ public interface HitpointsGlowConfig extends Config
     }
 
     @ConfigItem(
-            position = 4,
+            position = 5,
             keyName = "newMeme",
             name = "Meme",
             description = ":^)"

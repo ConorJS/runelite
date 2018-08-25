@@ -82,6 +82,7 @@ public class HitpointsGlowOverlay extends Overlay
             return;
         }
 
+        if (config.)
         int alpha = this.renderCycle * 2;
         if (alpha < 0)
         {
@@ -100,6 +101,17 @@ public class HitpointsGlowOverlay extends Overlay
 
         for (Polygon p : polys)
         {
+            if (config.enableRainbowGlow())
+            {
+                Color randomColor = new Color(
+                        (int)(Math.random()*255),
+                        (int)(Math.random()*255),
+                        (int)(Math.random()*255),
+                        alpha);
+
+                graphics.setColor(randomColor);
+            }
+
             if (config.enableDrawWireframeOnly()) {
                 graphics.drawPolygon(p);
             }
