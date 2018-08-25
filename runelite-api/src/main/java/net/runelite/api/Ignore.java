@@ -22,34 +22,24 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.corp;
+package net.runelite.api;
 
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-
-@ConfigGroup("corp")
-public interface CorpConfig extends Config
+/**
+ * An entry on the ignore list.
+ */
+public interface Ignore extends Nameable
 {
-	@ConfigItem(
-		keyName = "leftClickCore",
-		name = "Left click walk on core",
-		description = "Prioritizes Walk here over Attack on the Dark energey core",
-		position = 1
-	)
-	default boolean leftClickCore()
-	{
-		return true;
-	}
+	/**
+	 * The name of the player.
+	 *
+	 * @return the name
+	 */
+	String getName();
 
-	@ConfigItem(
-		keyName = "showDamage",
-		name = "Show damage overlay",
-		description = "Show total damage overlay",
-		position = 2
-	)
-	default boolean showDamage()
-	{
-		return true;
-	}
+	/**
+	 * The previous name the player had.
+	 *
+	 * @return the previous name
+	 */
+	String getPrevName();
 }

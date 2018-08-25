@@ -22,34 +22,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.corp;
+package net.runelite.rs.api;
 
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-
-@ConfigGroup("corp")
-public interface CorpConfig extends Config
+public interface RSIgnoreContainer extends RSNameableContainer
 {
-	@ConfigItem(
-		keyName = "leftClickCore",
-		name = "Left click walk on core",
-		description = "Prioritizes Walk here over Attack on the Dark energey core",
-		position = 1
-	)
-	default boolean leftClickCore()
-	{
-		return true;
-	}
-
-	@ConfigItem(
-		keyName = "showDamage",
-		name = "Show damage overlay",
-		description = "Show total damage overlay",
-		position = 2
-	)
-	default boolean showDamage()
-	{
-		return true;
-	}
 }

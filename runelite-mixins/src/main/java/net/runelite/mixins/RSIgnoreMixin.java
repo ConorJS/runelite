@@ -22,34 +22,28 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.corp;
+package net.runelite.mixins;
 
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
+import net.runelite.api.mixins.Inject;
+import net.runelite.api.mixins.Mixin;
+import net.runelite.rs.api.RSIgnore;
+import net.runelite.rs.api.RSName;
 
-@ConfigGroup("corp")
-public interface CorpConfig extends Config
+@Mixin(RSIgnore.class)
+public abstract class RSIgnoreMixin implements RSIgnore
 {
-	@ConfigItem(
-		keyName = "leftClickCore",
-		name = "Left click walk on core",
-		description = "Prioritizes Walk here over Attack on the Dark energey core",
-		position = 1
-	)
-	default boolean leftClickCore()
+	@Override
+	@Inject
+	public String getName()
 	{
-		return true;
+		return getRsName().getName();
 	}
 
-	@ConfigItem(
-		keyName = "showDamage",
-		name = "Show damage overlay",
-		description = "Show total damage overlay",
-		position = 2
-	)
-	default boolean showDamage()
+	@Override
+	@Inject
+	public String getPrevName()
 	{
-		return true;
+		RSName prevName = getRsPrevName();
+		return prevName == null ? null : prevName.getName();
 	}
 }
