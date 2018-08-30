@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Abex
+ * Copyright (c) 2018, Sean Dewar <https://github.com/seandewar>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,38 +22,22 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.api;
+package net.runelite.client.plugins.runenergy;
 
-import java.awt.Canvas;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigGroup;
+import net.runelite.client.config.ConfigItem;
 
-/**
- * Represents the client game engine.
- */
-public interface GameEngine
+@ConfigGroup("runenergy")
+public interface RunEnergyConfig extends Config
 {
-	/**
-	 * Gets the canvas that contains everything.
-	 *
-	 * @return the game canvas
-	 */
-	Canvas getCanvas();
-
-	/**
-	 * Gets the client main thread.
-	 *
-	 * @return the main thread
-	 */
-	Thread getClientThread();
-
-	/**
-	 * Checks whether this code is executing on the client main thread.
-	 *
-	 * @return true if on the main thread, false otherwise
-	 */
-	boolean isClientThread();
-
-	/**
-	 * Shut downs all open connections and files in client and serializes not serialized data.
-	 */
-	void shutDown();
+	@ConfigItem(
+		keyName = "replaceOrbText",
+		name = "Replace orb text with run time left",
+		description = "Show the remaining run time (in seconds) next in the energy orb."
+	)
+	default boolean replaceOrbText()
+	{
+		return false;
+	}
 }
