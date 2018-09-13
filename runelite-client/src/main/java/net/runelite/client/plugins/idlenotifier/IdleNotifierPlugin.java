@@ -37,6 +37,7 @@ import net.runelite.api.AnimationID;
 import static net.runelite.api.AnimationID.*;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
@@ -45,6 +46,7 @@ import net.runelite.api.Varbits;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
@@ -58,7 +60,11 @@ import net.runelite.client.plugins.PluginDescriptor;
 )
 public class IdleNotifierPlugin extends Plugin
 {
-	private static final int LOGOUT_WARNING_AFTER_TICKS = 14000; // 4 minutes and 40 seconds
+	private static final int LOGOUT_WARNING_AFTER_TICKS = 280 * 50; // 4 minutes and 40 seconds
+	private static final long LOGOUT_WARNING_AFTER_MILLIS = (long) (LOGOUT_WARNING_AFTER_TICKS * 0.6 * 1000);
+	private static final int LOGOUT_WARNING_AFTER_TICKS_IN_COMBAT = 1140 * 50; // 19 minutes
+	private static final long LOGOUT_WARNING_AFTER_MILLIS_IN_COMBAT = (long) (LOGOUT_WARNING_AFTER_TICKS_IN_COMBAT * 0.6 * 1000);
+	private static final int HIGHEST_MONSTER_ATTACK_SPEED = 8; // Except Scarab Mage, but they are with other monsters
 	private static final Duration SIX_HOUR_LOGOUT_WARNING_AFTER_DURATION = Duration.ofMinutes(340);
 
 	@Inject
@@ -78,7 +84,7 @@ public class IdleNotifierPlugin extends Plugin
 	private boolean notifyPrayer = true;
 	private boolean notifyIdleLogout = true;
 	private boolean notify6HourLogout = true;
-
+	private int lastCombatCountdown = 0;
 	private Instant sixHourWarningTime;
 	private boolean ready;
 
@@ -162,6 +168,7 @@ public class IdleNotifierPlugin extends Plugin
 			case FISHING_OILY_ROD:
 			case FISHING_KARAMBWAN:
 			case FISHING_CRUSHING_INFERNAL_EELS:
+			case FISHING_CUTTING_SACRED_EELS:
 			case FISHING_BAREHAND:
 			/* Mining(Normal) */
 			case MINING_BRONZE_PICKAXE:
@@ -276,18 +283,39 @@ public class IdleNotifierPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onHitsplatApplied(HitsplatApplied event)
+	{
+		if (event.getActor() != client.getLocalPlayer())
+		{
+			return;
+		}
+
+		final Hitsplat hitsplat = event.getHitsplat();
+
+		if (hitsplat.getHitsplatType() == Hitsplat.HitsplatType.DAMAGE
+			|| hitsplat.getHitsplatType() == Hitsplat.HitsplatType.BLOCK)
+		{
+			lastCombatCountdown = HIGHEST_MONSTER_ATTACK_SPEED;
+		}
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick event)
 	{
 		final Player local = client.getLocalPlayer();
 		final Duration waitDuration = Duration.ofMillis(config.getIdleNotificationDelay());
+		lastCombatCountdown = Math.max(lastCombatCountdown - 1, 0);
 
-		if (client.getGameState() != GameState.LOGGED_IN || local == null || client.getMouseIdleTicks() < 10)
+		if (client.getGameState() != GameState.LOGGED_IN
+			|| local == null
+			|| System.currentTimeMillis() - client.getMouseLastPressedMillis() < 200
+			|| client.getKeyboardIdleTicks() < 10)
 		{
 			resetTimers();
 			return;
 		}
 
-		if (checkIdleLogout())
+		if (config.logoutIdle() && checkIdleLogout())
 		{
 			notifier.notify("[" + local.getName() + "] is about to log out from idling too long!");
 		}
@@ -396,10 +424,21 @@ public class IdleNotifierPlugin extends Plugin
 
 	private boolean checkIdleLogout()
 	{
-		if (client.getMouseIdleTicks() > LOGOUT_WARNING_AFTER_TICKS
+		final long mouseDiff = System.currentTimeMillis() - client.getMouseLastPressedMillis();
+
+		if (mouseDiff > LOGOUT_WARNING_AFTER_MILLIS
 			&& client.getKeyboardIdleTicks() > LOGOUT_WARNING_AFTER_TICKS)
 		{
-			if (notifyIdleLogout)
+			if (lastCombatCountdown > 0)
+			{
+				if (mouseDiff > LOGOUT_WARNING_AFTER_MILLIS_IN_COMBAT
+					&& client.getKeyboardIdleTicks() > LOGOUT_WARNING_AFTER_TICKS_IN_COMBAT && notifyIdleLogout)
+				{
+					notifyIdleLogout = false;
+					return true;
+				}
+			}
+			else if (notifyIdleLogout)
 			{
 				notifyIdleLogout = false;
 				return true;
@@ -465,6 +504,9 @@ public class IdleNotifierPlugin extends Plugin
 	private void resetTimers()
 	{
 		final Player local = client.getLocalPlayer();
+
+		// Reset combat idle timer
+		lastCombatCountdown = 0;
 
 		// Reset animation idle timer
 		lastAnimating = null;
