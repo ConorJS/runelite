@@ -25,34 +25,21 @@
  */
 package net.runelite.client.plugins.wintertodt;
 
-import java.awt.Color;
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.plugins.wintertodt.config.WintertodtNotifyMode;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-@ConfigGroup("wintertodt")
-public interface WintertodtConfig extends Config
+@AllArgsConstructor
+@Getter
+enum WintertodtInterruptType
 {
-    @ConfigItem(
-            position = 1,
-            keyName = "notifyCondition",
-            name = "Notify When",
-            description = "Configures when to send notifications"
-    )
-    default WintertodtNotifyMode notifyCondition()
-    {
-        return WintertodtNotifyMode.ONLY_WHEN_INTERRUPTED;
-    }
+	COLD("Damaged by Wintertodt Cold"),
+	SNOWFALL("Damaged by Wintertodt Snowfall"),
+	BRAZIER("Brazier Shattered"),
+	INVENTORY_FULL("Inventory full of Bruma Roots"),
+	OUT_OF_ROOTS("Out of Bruma Roots"),
+	FIXED_BRAZIER("Fixed Brazier"),
+	LIT_BRAZIER("Lit Brazier"),
+	BRAZIER_WENT_OUT("Brazier went out");
 
-    @ConfigItem(
-            position = 2,
-            keyName = "damageNotificationColor",
-            name = "Damage Notification Color",
-            description = "Color of damage notification text in chat"
-    )
-    default Color damageNotificationColor()
-    {
-        return Color.CYAN;
-    }
+	private final String interruptSourceString;
 }

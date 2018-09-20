@@ -23,36 +23,25 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.wintertodt;
+package net.runelite.client.plugins.wintertodt.config;
 
-import java.awt.Color;
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.plugins.wintertodt.config.WintertodtNotifyMode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
-@ConfigGroup("wintertodt")
-public interface WintertodtConfig extends Config
+@Getter
+@RequiredArgsConstructor
+public enum WintertodtNotifyMode
 {
-    @ConfigItem(
-            position = 1,
-            keyName = "notifyCondition",
-            name = "Notify When",
-            description = "Configures when to send notifications"
-    )
-    default WintertodtNotifyMode notifyCondition()
-    {
-        return WintertodtNotifyMode.ONLY_WHEN_INTERRUPTED;
-    }
+	NONE("None"),
+	WHEN_DAMAGED("Damage Taken"),
+	ONLY_WHEN_INTERRUPTED("Action Interrupted"),
+	EITHER("Either");
 
-    @ConfigItem(
-            position = 2,
-            keyName = "damageNotificationColor",
-            name = "Damage Notification Color",
-            description = "Color of damage notification text in chat"
-    )
-    default Color damageNotificationColor()
-    {
-        return Color.CYAN;
-    }
+	private final String name;
+
+	@Override
+	public String toString()
+	{
+		return name;
+	}
 }

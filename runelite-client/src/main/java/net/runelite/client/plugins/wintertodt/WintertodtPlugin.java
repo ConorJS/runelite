@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018, b krzanich <krzanichb@protonmail.com>
+ * Copyright (c) 2018, terminatusx <jbfleischman@gmail.com>
+ * Copyright (c) 2018, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,29 +27,58 @@ package net.runelite.client.plugins.wintertodt;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
+import java.time.Duration;
+import java.time.Instant;
+import javax.inject.Inject;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.*;
-import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.events.*;
-import net.runelite.api.widgets.Widget;
+import static net.runelite.api.AnimationID.CONSTRUCTION;
+import static net.runelite.api.AnimationID.FIREMAKING;
+import static net.runelite.api.AnimationID.FLETCHING_BOW_CUTTING;
+import static net.runelite.api.AnimationID.IDLE;
+import static net.runelite.api.AnimationID.LOOKING_INTO;
+import static net.runelite.api.AnimationID.WOODCUTTING_3A_AXE;
+import static net.runelite.api.AnimationID.WOODCUTTING_ADAMANT;
+import static net.runelite.api.AnimationID.WOODCUTTING_BLACK;
+import static net.runelite.api.AnimationID.WOODCUTTING_BRONZE;
+import static net.runelite.api.AnimationID.WOODCUTTING_DRAGON;
+import static net.runelite.api.AnimationID.WOODCUTTING_INFERNAL;
+import static net.runelite.api.AnimationID.WOODCUTTING_IRON;
+import static net.runelite.api.AnimationID.WOODCUTTING_MITHRIL;
+import static net.runelite.api.AnimationID.WOODCUTTING_RUNE;
+import static net.runelite.api.AnimationID.WOODCUTTING_STEEL;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import static net.runelite.api.ItemID.BRUMA_KINDLING;
+import static net.runelite.api.ItemID.BRUMA_ROOT;
+import net.runelite.api.MessageNode;
+import net.runelite.api.Player;
+import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.SetMessage;
 import net.runelite.client.Notifier;
+import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
-
-import javax.inject.Inject;
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
+import net.runelite.client.util.ColorUtil;
 
 @PluginDescriptor(
-        name = "Wintertodt"
+        name = "Wintertodt",
+        description = "Wintertodt",
+        tags = {"minigame", "firemaking"}
 )
 @Slf4j
 public class WintertodtPlugin extends Plugin
 {
+    private static final int WINTERTODT_REGION = 6462;
+
     @Inject
     private Notifier notifier;
 
@@ -64,104 +94,31 @@ public class WintertodtPlugin extends Plugin
     @Inject
     private WintertodtConfig config;
 
-    @Getter
-    private GameObject brazier;
+    @Inject
+    private ChatMessageManager chatMessageManager;
 
-    @Getter
-    private boolean playerHasBrumaRoot;
+    @Getter(AccessLevel.PACKAGE)
+    private WintertodtActivity currentActivity = WintertodtActivity.IDLE;
 
-    // A compromise between the distance from the farthest rendered objects on the screen
-    // and the minimum distance required to see the brazier from the bruma root (or vice-versa)
-    protected static final int MAX_DISTANCE = 1500;
+    @Getter(AccessLevel.PACKAGE)
+    private int inventoryScore;
 
-    // The state of the nearest brazier
-    private BrazierState brazierState = BrazierState.UNLIT;
+    @Getter(AccessLevel.PACKAGE)
+    private int totalPotentialinventoryScore;
 
-    // The pyromancer
-    private NPC pyromancer = null;
+    @Getter(AccessLevel.PACKAGE)
+    private int numLogs;
 
-    private boolean inventoryFull = false;
+    @Getter(AccessLevel.PACKAGE)
+    private int numKindling;
 
-    // The state of the pyromancer : true = healed, false = dead
-    private boolean pyromancerState = true;
+    @Getter(AccessLevel.PACKAGE)
+    private boolean isInWintertodt;
 
-    // The animating state of the player
-    private PlayerAnimatingState playerAnimatingState = PlayerAnimatingState.IDLE;
-
-    // A list of all relevant, current brazier objects
-    private final ArrayList<GameObject> currentBrazierObjects = new ArrayList<>();
-
-    // A list of all relevant, current bruma root objects
-    private final ArrayList<GameObject> currentBrumaRootObjects = new ArrayList<>();
-
-    private final List<GameObject> unassignedSnowfallTiles = new ArrayList<>();
-
-    // This list is populated by the graphics objects that precede a snowfall
-    // (either an AOE damage or a brazier-breaking event).
-    // The contents of this list is destroyed after it is read, by the onGameTick subscriber method
-    private final ArrayList<GraphicsObject> impendingSnowfallWarnings = new ArrayList<>();
-
-    // This is how we keep track of the snowfall events. We keep track of the location
-    // (LocalPoint) and the age in ticks of the events
-    // [ Why does this need to be protected from concurrent writes?
-    //      It should only be written by onGameTick ]
-    protected final List<SnowfallPoint> snowfallEventsWithDamageToEscape = new CopyOnWriteArrayList<>();
-    private final List<LocalPoint> brazierBreakCentres = new ArrayList<>();
-    private final List<LocalPoint> snowfallDamageEventCentres = new ArrayList<>();
-
-    // The safe square to run to; this will only be populated if the player is in danger
-    protected final List<LocalPoint> safeSquares = new ArrayList<>();
-
-    private final List<LocalPoint> pathToBrazier = new ArrayList<>();
-    private final List<LocalPoint> pathToBruma = new ArrayList<>();
-    protected final List<LocalPoint> highlightPathToBrazier = new ArrayList<>();
-    protected final List<LocalPoint> highlightPathToBruma = new ArrayList<>();
-
-    // Animations
-    private static final int ANIMATION_IDLE = -1;
-    private static final int ANIMATION_EATING = 829;
-    private static final int ANIMATION_FIREMAKING = 832;
-    private static final int ANIMATION_WOODCUTTING = 2846;
-    private static final int ANIMATION_RELIGHTING_BRAZIER = 733;
-    private static final int ANIMATION_REPAIRING = 3676;
-
-    private static final int SNOWFALL_LIFE = 8; // TODO
-    private static final int BRAZIER_BREAK_EVENT_LIFE = 4;
-
-    private static final int WINTERTODT_AREA_LOWER_BOUND_X = 1610;
-    private static final int WINTERTODT_AREA_UPPER_BOUND_X = 1650;
-    private static final int WINTERTODT_AREA_LOWER_BOUND_Y = 3986;
-    private static final int WINTERTODT_AREA_UPPER_BOUND_Y = 4027;
-
-    private static final int GAME_STARTING_SOON_SECONDS = 5;
-
-    private int currentAnimation = 0;
-
-    protected boolean canSeeTimeTillStartWidget = false;
-
-    private int wintertodtHp = 0;
-
-    // Flag set to true when a player has yet to complete a full firemaking aninmation after
-    // clicking on the brazier - we track this because the first animation cycle is followed by
-    // a longer than normal idle animation delay and we need to know this
-    private int initialFiremakingAnimationDelay = 0;
-    private boolean movedSinceLastFiremaking = false;
-    private LocalPoint locationLastSeenPlayerOn = null;
-
-    protected boolean playerInWintertodtArea = false;
-
-    protected boolean gameActive = false;
-
-    //debug
-    private int tickCounter = 0;
-
-    protected boolean gameStartingSoon = false;
-    protected String stringTimeTillGameStarts = "";
-
-
+    private Instant lastActionTime;
 
     @Provides
-    WintertodtConfig provideConfig(ConfigManager configManager)
+    WintertodtConfig getConfig(ConfigManager configManager)
     {
         return configManager.getConfig(WintertodtConfig.class);
     }
@@ -169,6 +126,7 @@ public class WintertodtPlugin extends Plugin
     @Override
     protected void startUp() throws Exception
     {
+        reset();
         overlayManager.add(overlay);
     }
 
@@ -176,736 +134,343 @@ public class WintertodtPlugin extends Plugin
     protected void shutDown() throws Exception
     {
         overlayManager.remove(overlay);
+        reset();
     }
 
-
-
-    // TODO: Break down method into sub-methods
-    @Subscribe
-    public void onGameTick(GameTick event)
+    private void reset()
     {
-        determineIfPlayerInWintertodtArea();
-        getInfoFromWidgets();
+        inventoryScore = 0;
+        totalPotentialinventoryScore = 0;
+        numLogs = 0;
+        numKindling = 0;
+        currentActivity = WintertodtActivity.IDLE;
+        lastActionTime = null;
+    }
 
-        if ((this.locationLastSeenPlayerOn != null) && ((!this.locationLastSeenPlayerOn.equals(client.getLocalPlayer().getLocalLocation()))))
+    private boolean isInWintertodtRegion()
+    {
+        if (client.getLocalPlayer() != null)
         {
-            this.movedSinceLastFiremaking = true;
+            return client.getLocalPlayer().getWorldLocation().getRegionID() == WINTERTODT_REGION;
         }
 
-        if (isInventoryFull() != this.inventoryFull) {
-            this.inventoryFull = isInventoryFull();
-        }
+        return false;
+    }
 
-        this.pathToBrazier.clear();
-        this.pathToBruma.clear();
-        if (!this.currentBrazierObjects.isEmpty()) {
-            this.pathToBrazier.addAll(generatePathToPlayer(this.currentBrazierObjects.get(0).getLocalLocation()));
-        }
-        if (!this.currentBrumaRootObjects.isEmpty()) {
-            this.pathToBruma.addAll(generatePathToPlayer(this.currentBrumaRootObjects.get(0).getLocalLocation()));
-        }
-
-        // Clear the initialFiremakingAnimationDelay flag to give us an extra tick (see comments above initialFiremakingAnimationDelay decl)
-        if (this.initialFiremakingAnimationDelay > 0)
+    @Subscribe
+    public void onGameTick(GameTick gameTick)
+    {
+        if (!isInWintertodtRegion())
         {
-            this.initialFiremakingAnimationDelay--;
-
-            if (this.initialFiremakingAnimationDelay == 0) {
-                this.playerAnimatingState = PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_1;
+            if (isInWintertodt)
+            {
+                log.debug("Left Wintertodt!");
+                reset();
             }
+
+            isInWintertodt = false;
+            return;
+        }
+
+        if (!isInWintertodt)
+        {
+            reset();
+            log.debug("Entered Wintertodt!");
+        }
+        isInWintertodt = true;
+
+        checkActionTimeout();
+    }
+
+    private void checkActionTimeout()
+    {
+        if (currentActivity == WintertodtActivity.IDLE)
+        {
+            return;
+        }
+
+        int currentAnimation = client.getLocalPlayer() != null ? client.getLocalPlayer().getAnimation() : -1;
+        if (currentAnimation != IDLE || lastActionTime == null)
+        {
+            return;
+        }
+
+        Duration actionTimeout = Duration.ofSeconds(3);
+        Duration sinceAction = Duration.between(lastActionTime, Instant.now());
+
+        if (sinceAction.compareTo(actionTimeout) >= 0)
+        {
+            log.debug("Activity timeout!");
+            currentActivity = WintertodtActivity.IDLE;
+        }
+    }
+
+    @Subscribe
+    public void onSetMessage(SetMessage setMessage)
+    {
+        if (!isInWintertodt)
+        {
+            return;
+        }
+
+        ChatMessageType chatMessageType = setMessage.getType();
+
+        if (chatMessageType != ChatMessageType.SERVER && chatMessageType != ChatMessageType.FILTERED)
+        {
+            return;
+        }
+
+        MessageNode messageNode = setMessage.getMessageNode();
+        final WintertodtInterruptType interruptType;
+
+        if (messageNode.getValue().startsWith("The cold of"))
+        {
+            interruptType = WintertodtInterruptType.COLD;
+        }
+        else if (messageNode.getValue().startsWith("The freezing cold attack"))
+        {
+            interruptType = WintertodtInterruptType.SNOWFALL;
+        }
+        else if (messageNode.getValue().startsWith("The brazier is broken and shrapnel"))
+        {
+            interruptType = WintertodtInterruptType.BRAZIER;
+        }
+        else if (messageNode.getValue().startsWith("You have run out of bruma roots"))
+        {
+            interruptType = WintertodtInterruptType.OUT_OF_ROOTS;
+        }
+        else if (messageNode.getValue().startsWith("Your inventory is too full"))
+        {
+            interruptType = WintertodtInterruptType.INVENTORY_FULL;
+        }
+        else if (messageNode.getValue().startsWith("You fix the brazier"))
+        {
+            interruptType = WintertodtInterruptType.FIXED_BRAZIER;
+        }
+        else if (messageNode.getValue().startsWith("You light the brazier"))
+        {
+            interruptType = WintertodtInterruptType.LIT_BRAZIER;
+        }
+        else if (messageNode.getValue().startsWith("The brazier has gone out."))
+        {
+            interruptType = WintertodtInterruptType.BRAZIER_WENT_OUT;
         }
         else
         {
-            // The order of these two if blocks must be preserved (or we could just use a switch statement
-            // to make sure both don't get executed in the same tick)
-            if (this.playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_2) {
-                this.playerAnimatingState = PlayerAnimatingState.IDLE_AFTER_FIREMAKING;
-            }
-            if (this.playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_1) {
-                this.playerAnimatingState = PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_2;
-            }
+            return;
         }
 
-        this.playerHasBrumaRoot = doesInventoryHaveBrumaRoot();
-        // Snowfall logic should, at the least, be put into another method
-        // TODO: As we only look at snowfall events as they spawn, they can be LocalPoints, not SnowfallPoints
-        // TODO: as we don't need to track their age here
-        // Organise snowfalls into sets
-        // 4 snowfalls in a +-shape will appear around a brazier centre point preceding a brazier
-        // 5 snowfalls in a x-shape will appear anywhere not on a brazier preceding a snowfall damage event
-        for (GameObject unassignedEvent : this.unassignedSnowfallTiles)
+        boolean wasInterrupted = false;
+        boolean wasDamaged = false;
+        boolean neverNotify = false;
+
+        switch (interruptType)
         {
-            int twoHorizontalOrVerticalMatches = 0;
-            int diagonalMatches = 0;
-            LocalPoint opposingPoint = null;
-            for (GameObject otherEvent : this.unassignedSnowfallTiles)
+            case COLD:
+            case BRAZIER:
+            case SNOWFALL:
+                wasDamaged = true;
+
+                // Recolor message for damage notification
+                messageNode.setRuneLiteFormatMessage(ColorUtil.wrapWithColorTag(messageNode.getValue(), config.damageNotificationColor()));
+                chatMessageManager.update(messageNode);
+                client.refreshChat();
+
+                // all actions except woodcutting are interrupted from damage
+                if (currentActivity != WintertodtActivity.WOODCUTTING)
+                {
+                    wasInterrupted = true;
+                }
+
+                break;
+            case INVENTORY_FULL:
+            case OUT_OF_ROOTS:
+            case BRAZIER_WENT_OUT:
+                wasInterrupted = true;
+                break;
+            case LIT_BRAZIER:
+            case FIXED_BRAZIER:
+                wasInterrupted = true;
+                neverNotify = true;
+                break;
+        }
+
+        if (!neverNotify)
+        {
+            boolean shouldNotify = false;
+
+            switch (config.notifyCondition())
             {
-                int[] vector = getAbsoluteVector(unassignedEvent.getLocalLocation(), otherEvent.getLocalLocation());
-                // direct object comparison, as this will happen at start of list
-                if (unassignedEvent == otherEvent)
-                {
-                    // do nothing
-                }
-                // a 128, 128 vector means diagonally adjacent
-                else if ((vector[0] == 128) && (vector[1] == 128))
-                {
-                    diagonalMatches++;
-                }
-                // a 0, 128 vector means diagonally adjacent
-                else if (((vector[0] == 256) && (vector[1] == 0)) || ((vector[0] == 0) && (vector[0] == 256)))
-                {
-                    opposingPoint = otherEvent.getLocalLocation();
-                    twoHorizontalOrVerticalMatches++;
-                }
+                case ONLY_WHEN_INTERRUPTED:
+                    if (wasInterrupted)
+                    {
+                        shouldNotify = true;
+                    }
+                    break;
+                case WHEN_DAMAGED:
+                    if (wasDamaged)
+                    {
+                        shouldNotify = true;
+                    }
+                    break;
+                case EITHER:
+                    shouldNotify = true;
+                    break;
             }
-            if ((twoHorizontalOrVerticalMatches == 1) && (diagonalMatches == 2))
+
+            if (shouldNotify)
             {
-                System.out.println("Found brazier break at: " +
-                        getVectorAsString(client.getLocalPlayer().getLocalLocation(),
-                                calculateMidpoint(opposingPoint, unassignedEvent.getLocalLocation())));
-                this.brazierBreakCentres.add(calculateMidpoint(opposingPoint, unassignedEvent.getLocalLocation()));
-            }
-            // a snowfall that has a snowfall on each of its 4 diagonals is the centre of a snowfall damage event
-            if (diagonalMatches == 4)
-            {
-                System.out.println("Found snowfall damage event at: " +
-                        getVectorAsString(client.getLocalPlayer().getLocalLocation(),
-                                unassignedEvent.getLocalLocation()));
-                this.snowfallDamageEventCentres.add(unassignedEvent.getLocalLocation());
+                notifyInterrupted(interruptType, wasInterrupted);
             }
         }
 
-        this.unassignedSnowfallTiles.clear();
-
-        // Start tracking all squares that are endangered because of new snowfall damage events
-        this.snowfallEventsWithDamageToEscape.addAll(this.snowfallDamageEventCentres.stream()
-            .filter(point -> isApparentToPlayer(point))
-            .flatMap(point -> {
-                List<SnowfallPoint> endangeringEvents = new ArrayList<>();
-                List<LocalPoint> endangeredPoints = adjacentPointsOf(point);
-                endangeredPoints.add(point);
-
-                for (int i = 0; i < endangeredPoints.size(); i++)
-                {
-                    endangeringEvents.add(new SnowfallPoint(endangeredPoints.get(i), SNOWFALL_LIFE));
-                }
-
-                return endangeringEvents.stream();
-            })
-            .collect(Collectors.toList())
-        );
-
-
-        // Start tracking all squares that are endangered because of new brazier break events
-        this.snowfallEventsWithDamageToEscape.addAll(this.brazierBreakCentres.stream()
-            .filter(point -> isApparentToPlayer(point))
-            .flatMap(point -> {
-                List<SnowfallPoint> endangeringEvents = new ArrayList<>();
-                List<LocalPoint> endangeredPoints = adjacentBrazierTilesFromBrazierCenter(point);
-
-                for (int i = 0; i < endangeredPoints.size(); i++) {
-                    endangeringEvents.add(new SnowfallPoint(endangeredPoints.get(i), BRAZIER_BREAK_EVENT_LIFE));
-                }
-
-                return endangeringEvents.stream();
-            })
-            .collect(Collectors.toList())
-        );
-
-
-        // Clear all event centres after we've found what squares they endanger
-        this.snowfallDamageEventCentres.clear();
-        this.brazierBreakCentres.clear();
-
-        // increment age of events
-        for (SnowfallPoint snowfallPoint : this.snowfallEventsWithDamageToEscape)
+        if (wasInterrupted)
         {
-            snowfallPoint.decrementLife();
-            if (snowfallPoint.getRemainingLife() == 0) {
-                snowfallEventsWithDamageToEscape.remove(snowfallPoint);
-            }
-        }
-
-        this.locationLastSeenPlayerOn = client.getLocalPlayer().getLocalLocation();
-        calculateSafeSquares();
-    }
-
-    // TODO: Need to handle brazier objects differently; should track (and dispose of) all
-    // TODO: loaded brazier objects and (per tick) maintain a reference
-    @Subscribe
-    public void onGameObjectSpawned(final GameObjectSpawned event)
-    {
-        GameObject gameObject = event.getGameObject();
-        // turn this into a switch statement
-        if ((gameObject.getId() == ObjectID.BRAZIER_29312) && (isApparentToPlayer(gameObject.getLocalLocation())))
-        {
-            if (brazierState != BrazierState.UNLIT) {
-                brazierState = BrazierState.UNLIT;
-                currentBrazierObjects.clear();
-            }
-            currentBrazierObjects.add(gameObject);
-        }
-        else if ((gameObject.getId() == ObjectID.BRAZIER_29313) && (isApparentToPlayer(gameObject.getLocalLocation())))
-        {
-            if (brazierState != BrazierState.BROKEN) {
-                brazierState = BrazierState.BROKEN;
-                currentBrazierObjects.clear();
-            }
-            currentBrazierObjects.add(gameObject);
-        }
-        else if ((gameObject.getId() == ObjectID.BURNING_BRAZIER_29314) && (isApparentToPlayer(gameObject.getLocalLocation())))
-        {
-            if (brazierState != BrazierState.LIT) {
-                brazierState = BrazierState.LIT;
-                currentBrazierObjects.clear();
-            }
-            currentBrazierObjects.add(gameObject);
-        }
-        else if ((gameObject.getId() == ObjectID.BRUMA_ROOTS) && (isApparentToPlayer(gameObject.getLocalLocation())))
-        {
-            currentBrumaRootObjects.clear();
-            currentBrumaRootObjects.add(gameObject);
-        }
-        else if ((gameObject.getId() == 26690) && (isApparentToPlayer(gameObject.getLocalLocation())))
-        {
-            this.unassignedSnowfallTiles.add(gameObject);
+            currentActivity = WintertodtActivity.IDLE;
         }
     }
 
-    @Subscribe
-    public void onNpcSpawned(final NpcSpawned event)
+    private void notifyInterrupted(WintertodtInterruptType interruptType, boolean wasActivityInterrupted)
     {
-        NPC npc = event.getNpc();
-        if ((npc.getId() == NpcID.PYROMANCER) && (isApparentToPlayer(npc.getLocalLocation())))
-        {
-            if (!pyromancerState) {
-                pyromancerState = true;
-                System.out.println("DEBUG WT: Pyromancer state switching to: " + pyromancerState);
-            }
-        }
-        else if ((npc.getId() == NpcID.INCAPACITATED_PYROMANCER) && (isApparentToPlayer(npc.getLocalLocation())))
-        {
-            if (pyromancerState) {
-                pyromancerState = false;
-                System.out.println("DEBUG WT: Pyromancer state switching to: " + pyromancerState);
-            }
-        }
-        this.pyromancer = npc;
-    }
+        final StringBuilder str = new StringBuilder();
 
-    @Subscribe
-    public void onGameObjectDespawned(final GameObjectDespawned event)
-    {
-        /*GameObject gameObject = event.getGameObject();
-        if (gameObject.getId() == ObjectID.BRAZIER_29312)
-        {
-            System.out.println("Unlit brazier despawned");
-        }
-        else if (gameObject.getId() == ObjectID.BRAZIER_29313)
-        {
-            System.out.println("Broken brazier despawned");
-        }
-        else if (gameObject.getId() == ObjectID.BURNING_BRAZIER_29314)
-        {
-            System.out.println("Lit brazier despawned");
-        }*/
-    }
+        str.append("Wintertodt: ");
 
-    @Subscribe
-    public void onGameObjectChanged(final GameObjectChanged event)
-    {
-        /*GameObject gameObject = event.getGameObject();
-        if ((gameObject.getId() >= 1276) && (gameObject.getId() <= 1280))
+        if (wasActivityInterrupted)
         {
-
+            str.append(currentActivity.getActionString());
+            str.append(" interrupted! ");
         }
 
-        if (gameObject.getId() == ObjectID.BRAZIER_29312)
-        {
-            System.out.println("Unlit brazier changed");
-        }
-        else if (gameObject.getId() == ObjectID.BRAZIER_29313)
-        {
-            System.out.println("Broken brazier changed");
-        }
-        else if (gameObject.getId() == ObjectID.BURNING_BRAZIER_29314)
-        {
-            System.out.println("Lit brazier changed");
-        }*/
-    }
+        str.append(interruptType.getInterruptSourceString());
 
-    @Subscribe
-    public void onGraphicsObjectCreated(GraphicsObjectCreated event)
-    {
-        final GraphicsObject go = event.getGraphicsObject();
-
-        // TODO: Are we using this anymore?
-        if ((go.getId() == GraphicID.WINTERTODT_AURA) && (isApparentToPlayer(go.getLocation())))
-        {
-            //System.out.println("Observed Wintertodt Aura graphics object creation");
-            // if brazier tile highlight brazier and alert
-
-            // if non-brazier tile then calc area of effect, then calculate + highlight safe squares
-            // if player is in calculated area
-            // deprecated
-            impendingSnowfallWarnings.add(event.getGraphicsObject());
-        }
+        String notification = str.toString();
+        log.debug("Sending notification: {}", notification);
+        notifier.notify(notification);
     }
 
     @Subscribe
     public void onAnimationChanged(final AnimationChanged event)
     {
-        Player local = client.getLocalPlayer();
+        if (!isInWintertodt)
+        {
+            return;
+        }
+
+        final Player local = client.getLocalPlayer();
 
         if (event.getActor() != local)
         {
             return;
         }
 
-        int newAnimation = local.getAnimation();
-        if (newAnimation != this.currentAnimation)
+        final int animId = local.getAnimation();
+        switch (animId)
         {
-            switch (newAnimation)
-            {
-                case ANIMATION_EATING :
-                case ANIMATION_IDLE :
-                    // The PlayerAnimatingState enumerator is used here for a little more than just what
-                    // the name states. It is also responsible for tracking the nature of an idle
-                    // animation (i.e. what action the player went idle from) and also facilitates tracking
-                    // of long and short post-firemaking idle animations; a short (1-tick) idle animation
-                    // following firemaking occurs while the player is putting logs on the brazier -
-                    // see the onGameTick() method for more on this
-                    switch (this.currentAnimation)
-                    {
-                        case ANIMATION_FIREMAKING :
-                            this.locationLastSeenPlayerOn = client.getLocalPlayer().getLocalLocation();
-                            this.playerAnimatingState = PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_1;
-                            break;
-                        case ANIMATION_WOODCUTTING :
-                            this.playerAnimatingState = PlayerAnimatingState.IDLE_AFTER_WOODCUTTING;
-                            break;
-                        default :
-                            this.playerAnimatingState = PlayerAnimatingState.IDLE;
-                    }
+            case WOODCUTTING_BRONZE:
+            case WOODCUTTING_IRON:
+            case WOODCUTTING_STEEL:
+            case WOODCUTTING_BLACK:
+            case WOODCUTTING_MITHRIL:
+            case WOODCUTTING_ADAMANT:
+            case WOODCUTTING_RUNE:
+            case WOODCUTTING_DRAGON:
+            case WOODCUTTING_INFERNAL:
+            case WOODCUTTING_3A_AXE:
+                setActivity(WintertodtActivity.WOODCUTTING);
+                break;
 
+            case FLETCHING_BOW_CUTTING:
+                setActivity(WintertodtActivity.FLETCHING);
+                break;
+
+            case LOOKING_INTO:
+                setActivity(WintertodtActivity.FEEDING_BRAZIER);
+                break;
+
+            case FIREMAKING:
+                setActivity(WintertodtActivity.LIGHTING_BRAZIER);
+                break;
+
+            case CONSTRUCTION:
+                setActivity(WintertodtActivity.FIXING_BRAZIER);
+                break;
+        }
+    }
+
+    @Subscribe
+    public void itemContainerChanged(ItemContainerChanged event)
+    {
+        final ItemContainer container = event.getItemContainer();
+
+        if (!isInWintertodt || container != client.getItemContainer(InventoryID.INVENTORY))
+        {
+            return;
+        }
+
+        final Item[] inv = container.getItems();
+
+        inventoryScore = 0;
+        totalPotentialinventoryScore = 0;
+        numLogs = 0;
+        numKindling = 0;
+
+        for (Item item : inv)
+        {
+            inventoryScore += getPoints(item.getId());
+            totalPotentialinventoryScore += getPotentialPoints(item.getId());
+
+            switch (item.getId())
+            {
+                case BRUMA_ROOT:
+                    ++numLogs;
                     break;
-                case ANIMATION_FIREMAKING :
-                    if (this.movedSinceLastFiremaking)
-                    {
-                        // We've just started firemaking again, reset moved flag and
-                        // set up first animation cycle delay allowance
-                        this.movedSinceLastFiremaking = false;
-                        this.initialFiremakingAnimationDelay = 4;
-                    }
-                    this.playerAnimatingState = PlayerAnimatingState.FIREMAKING;
-                    break;
-                case ANIMATION_WOODCUTTING :
-                    this.playerAnimatingState = PlayerAnimatingState.WOODCUTTING;
-                    break;
-                case ANIMATION_REPAIRING :
-                    this.playerAnimatingState = PlayerAnimatingState.REPAIRING;
-                    break;
-                case ANIMATION_RELIGHTING_BRAZIER :
-                    this.playerAnimatingState = PlayerAnimatingState.RELIGHTING_BRAZIER;
-                    break;
-                default :
-                    this.playerAnimatingState = PlayerAnimatingState.UNKNOWN;
-                    System.out.println(newAnimation);
+                case BRUMA_KINDLING:
+                    ++numKindling;
                     break;
             }
+        }
 
-            // Don't remember eating animation
-            if (newAnimation != ANIMATION_EATING)
-            {
-                this.currentAnimation = newAnimation;
-            }
+        //If we're currently fletching but there are no more logs, go ahead and abort fletching immediately
+        if (numLogs == 0 && currentActivity == WintertodtActivity.FLETCHING)
+        {
+            currentActivity = WintertodtActivity.IDLE;
+        }
+        //Otherwise, if we're currently feeding the brazier but we've run out of both logs and kindling, abort the feeding activity
+        else if (numLogs == 0 && numKindling == 0 && currentActivity == WintertodtActivity.FEEDING_BRAZIER)
+        {
+            currentActivity = WintertodtActivity.IDLE;
         }
     }
 
-    public List<NPC> getHighlightNpcs()
+    private void setActivity(WintertodtActivity action)
     {
-        List<NPC> highlightNpcs = new ArrayList<>();
-        if ((brazierState == BrazierState.UNLIT) && (pyromancer != null) && (!pyromancerState))
+        currentActivity = action;
+        lastActionTime = Instant.now();
+    }
+
+    private static int getPoints(int id)
+    {
+        switch (id)
         {
-            highlightNpcs.add(this.pyromancer);
-            System.out.println("in if{} statement in getHighlightNpcs, populating list of size: " + highlightNpcs.size());
-        }
-
-        return highlightNpcs;
-    }
-
-    public List<GameObject> getHighlightObjects()
-    {
-        // Rest the highlight buffers for pathways
-        this.highlightPathToBruma.clear();
-        this.highlightPathToBrazier.clear();
-
-        List<GameObject> highlightObjects = new ArrayList<>();
-        if (((brazierState == BrazierState.UNLIT) || (brazierState == BrazierState.BROKEN)) && playerFiremaking()
-                && playerHasBrumaRoot)
-        {
-            // Highlight the brazier if the player was using it and it broke or went out
-            highlightObjects.addAll(this.currentBrazierObjects);
-        }
-        else if ((playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING) && playerHasBrumaRoot)
-        {
-            // Highlight the brazier if the player has been interrupted while firemaking (and still has bruma)
-             highlightObjects.addAll(this.currentBrazierObjects);
-        }
-        else if (!playerHasBrumaRoot && playerFiremaking())
-        {
-            // Highlight the bruma root if the player has been firemaking but no longer has bruma roots
-            highlightObjects.addAll(this.currentBrumaRootObjects);
-            this.highlightPathToBruma.addAll(this.pathToBruma);
-        }
-        else if (playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_WOODCUTTING)
-        {
-            if (this.inventoryFull)
-            {
-                // Highlight the brazier + pathway after a player finishes an inventory of bruma roots
-                highlightObjects.addAll(currentBrazierObjects);
-                this.highlightPathToBrazier.addAll(this.pathToBrazier);
-            }
-            // Highlighting the bruma root if the player clicks off of the bruma root while cutting
-            else
-            {
-                highlightObjects.addAll(this.currentBrumaRootObjects);
-            }
-        }
-
-        return highlightObjects;
-    }
-
-    private boolean isBrazierOnTile(LocalPoint localPoint)
-    {
-        boolean isBrazierOnTile = false;
-        for (GameObject brazier : currentBrazierObjects)
-        {
-            if (Math.abs(brazier.getLocalLocation().getX() - localPoint.getX()) <= 128 &&
-                    Math.abs(brazier.getLocalLocation().getY() - localPoint.getY()) <= 128)
-            {
-                isBrazierOnTile = true;
-            }
-        }
-        return isBrazierOnTile;
-    }
-
-    private boolean isAdjacentToPlayer(LocalPoint point)
-    {
-        LocalPoint playerPoint = client.getLocalPlayer().getLocalLocation();
-        return (
-                (Math.abs(point.getX() - playerPoint.getX()) <= 128) &&
-                (Math.abs(point.getY() - playerPoint.getY()) <= 128));
-    }
-
-    private boolean isAtPlayer(LocalPoint point)
-    {
-        LocalPoint playerPoint = client.getLocalPlayer().getLocalLocation();
-        return ((Math.abs(point.getX() - playerPoint.getX()) <= 64) &&
-                (Math.abs(point.getY() - playerPoint.getY()) <= 64));
-    }
-
-    private boolean isApparentToPlayer(LocalPoint point)
-    {
-        LocalPoint playerPoint = client.getLocalPlayer().getLocalLocation();
-        return ((Math.abs(point.getX() - playerPoint.getX()) <= MAX_DISTANCE) && (Math.abs(point.getY() - playerPoint.getY()) <= MAX_DISTANCE));
-    }
-
-    private ArrayList<LocalPoint> adjacentPointsOf(LocalPoint point)
-    {
-        return adjacentTilesOfRadiusX(point, 1);
-    }
-
-    private ArrayList<LocalPoint> adjacentBrazierTilesFromBrazierCenter(LocalPoint point)
-    {
-        return adjacentTilesOfRadiusX(point, 2);
-    }
-
-    private ArrayList<LocalPoint> adjacentTilesOfRadiusX(LocalPoint point, int radius)
-    {
-        ArrayList<LocalPoint> adjacentPoints = new ArrayList<>();
-
-        // Start drawing the square at {radius, radius}
-        int xPos = radius;
-        int yPos = radius;
-
-        // Draw the east edge of the square
-        while (yPos + radius > 0)
-        {
-            adjacentPoints.add(new LocalPoint(point.getX() + (xPos * 128), point.getY() + (yPos * 128)));
-            yPos--;
-        }
-
-        // Draw the south edge of the square
-        while (xPos + radius > 0)
-        {
-            adjacentPoints.add(new LocalPoint(point.getX() + (xPos * 128), point.getY() + (yPos * 128)));
-            xPos--;
-        }
-
-        // Draw the west edge of the square
-        while (radius - yPos > 0)
-        {
-            adjacentPoints.add(new LocalPoint(point.getX() + (xPos * 128), point.getY() + (yPos * 128)));
-            yPos++;
-        }
-
-        // Draw the north edge of the square
-        while (radius - xPos > 0)
-        {
-            adjacentPoints.add(new LocalPoint(point.getX() + (xPos * 128), point.getY() + (yPos * 128)));
-            xPos++;
-        }
-
-        return adjacentPoints;
-    }
-
-    private String getVectorAsString(LocalPoint origin, LocalPoint destination)
-    {
-        return (Math.abs(origin.getX() - destination.getX()) / 128) + " "
-                + ((origin.getX() - destination.getX() < 0) ? "EAST" : "WEST") + ", "
-                + Math.abs((origin.getY() - destination.getY()) / 128) + " "
-                + ((origin.getY() - destination.getY() < 0) ? "NORTH" : "SOUTH");
-    }
-
-    private int[] getAbsoluteVector(LocalPoint origin, LocalPoint destination)
-    {
-        int[] vector = new int[2];
-        vector[0] = Math.abs(origin.getX() - destination.getX());
-        vector[1] = Math.abs(origin.getY() - destination.getY());
-        return vector;
-    }
-
-    private boolean doesInventoryHaveBrumaRoot()
-    {
-        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-        Item[] inventoryItems;
-        boolean hasBrumaRoot = false;
-
-        if (inventory != null)
-        {
-            inventoryItems = inventory.getItems();
-            for (Item item : inventoryItems)
-            {
-                if (item.getId() == ItemID.BRUMA_ROOT)
-                {
-                    hasBrumaRoot = true;
-                }
-            }
-        }
-
-        return hasBrumaRoot;
-    }
-
-    private int getInventorySlotsFree()
-    {
-        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-        Item[] inventoryItems = inventory.getItems();
-        return 28 - inventoryItems.length;
-    }
-
-    private boolean isInventoryFull()
-    {
-        return getInventorySlotsFree() == 0;
-    }
-
-    private boolean playerFiremaking()
-    {
-        if ((this.playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING) ||
-                (this.playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_1) ||
-                (this.playerAnimatingState == PlayerAnimatingState.IDLE_AFTER_FIREMAKING_TRANSIENT_2) ||
-                (this.playerAnimatingState == PlayerAnimatingState.FIREMAKING))
-        {
-            return true;
-        }
-        return false;
-    }
-
-    // Not a comprehensive pathfinding algo, just basic Y axis first, X axis second
-    private List<LocalPoint> generatePath(LocalPoint origin, LocalPoint destination)
-    {
-        List<LocalPoint> pathPoints = new ArrayList<>();
-        int originX = origin.getX();
-        int originY = origin.getY();
-
-        // Calculate N/S path first
-        while (Math.abs(originY - destination.getY()) > 128)
-        {
-            pathPoints.add(new LocalPoint(originX, originY));
-            if (originY > destination.getY())
-            {
-                originY -= 128;
-            }
-            else
-            {
-                originY += 128;
-            }
-        }
-        // Then W/E path
-        while (Math.abs(originX - destination.getX()) > 128)
-        {
-            pathPoints.add(new LocalPoint(originX, originY));
-            if (originX > destination.getX())
-            {
-                originX -= 128;
-            }
-            else
-            {
-                originX += 128;
-            }
-        }
-
-        return pathPoints;
-    }
-
-    private List<LocalPoint> generatePathToPlayer(LocalPoint destination)
-    {
-        return generatePath(client.getLocalPlayer().getLocalLocation(), destination);
-    }
-
-    private LocalPoint calculateMidpoint(LocalPoint point1, LocalPoint point2)
-    {
-        int centreX = point1.getX() > point2.getX() ?
-                point2.getX() + (point1.getX() - point2.getX()) / 2
-                : point1.getX() + (point2.getX() - point1.getX()) / 2;
-
-        int centreY = point1.getY() > point2.getY() ?
-                point2.getY() + (point1.getY() - point2.getY()) / 2
-                : point1.getY() + (point2.getY() - point1.getY()) / 2;
-
-        return new LocalPoint(centreX, centreY);
-    }
-
-    private void calculateSafeSquares()
-    {
-        this.safeSquares.clear();
-
-        boolean isEndangered = false;
-        for (SnowfallPoint snowfallPoint : this.snowfallEventsWithDamageToEscape)
-        {
-
-            if ((isAtPlayer(snowfallPoint.getSnowfallPoint())) && (!isEndangered))
-            {
-                // Once we know the player is endangered, we do not need to keep iterating through this list
-                isEndangered = true;
-            }
-        }
-
-        if (isEndangered)
-        {
-            // Spiral outwards from centre until we find a square that isn't in danger
-            boolean safeFound = false;
-            int radius = 1; // n
-            while (!safeFound)
-            {
-                List<LocalPoint> squaresToCheck = adjacentTilesOfRadiusX(
-                        client.getLocalPlayer().getLocalLocation(), radius);
-
-                // For each square n (radius) squares from player, we check to see if it is safe
-                for (LocalPoint square : squaresToCheck)
-                {
-                    safeFound = true;
-                    for (SnowfallPoint dangerSquare : this.snowfallEventsWithDamageToEscape)
-                    {
-                        // If safeFound is never set to false during this for loop, then we have found a safe square
-                        int[] proximityVector = getAbsoluteVector(dangerSquare.getSnowfallPoint(), square);
-                        if ((proximityVector[0] == 0) && (proximityVector[1] == 0))
-                        {
-                            safeFound = false;
-                        }
-                    }
-
-                    // As we have found a safe square, set it to the class' safeSquare variable (for this tick)
-                    // Following this, we will break out of the outer for loop (through inaction), and then
-                    // break out of the while loop and then execution will leave this method
-                    if (safeFound)
-                    {
-                        this.safeSquares.add(square);
-                    }
-                }
-
-                // Expand the spiral outwards (n++)
-                radius++;
-            }
-            System.out.println();
+            case BRUMA_ROOT:
+                return 10;
+            case BRUMA_KINDLING:
+                return 25;
+            default:
+                return 0;
         }
     }
 
-    private void determineIfPlayerInWintertodtArea()
+    private static int getPotentialPoints(int id)
     {
-        int xLoc = client.getLocalPlayer().getWorldLocation().getX();
-        int yLoc = client.getLocalPlayer().getWorldLocation().getY();
-
-        this.playerInWintertodtArea = (xLoc >= WINTERTODT_AREA_LOWER_BOUND_X && xLoc <= WINTERTODT_AREA_UPPER_BOUND_X &&
-                yLoc >= WINTERTODT_AREA_LOWER_BOUND_Y && yLoc <= WINTERTODT_AREA_UPPER_BOUND_Y);
-    }
-
-    private void getInfoFromWidgets()
-    {
-        // 396 child 3 = time left, 7 = points, 21 = energy
-        try
+        switch (id)
         {
-            Widget timeTillWintertodtGame = client.getWidget(396, 3);
-            if ((timeTillWintertodtGame != null) && (timeTillWintertodtGame.getText() != null))
-            {
-                String widgetMessage = timeTillWintertodtGame.getText();
-                if (!widgetMessage.isEmpty())
-                {
-                    this.canSeeTimeTillStartWidget = true;
-                    widgetMessage = widgetMessage.split(": ")[1];
-                    if (!widgetMessage.contains("min"))
-                    {
-                        widgetMessage = widgetMessage.split("sec")[0];
-                    }
-                    else
-                    {
-                        String[] minAndSec = widgetMessage.split("min ");
-                        minAndSec[1] = minAndSec[1].split("sec")[0];
-                        widgetMessage = "" + ((Integer.parseInt(minAndSec[0]) * 60) + Integer.parseInt(minAndSec[1]));
-                    }
-
-                    if (Integer.parseInt(widgetMessage) <= GAME_STARTING_SOON_SECONDS)
-                    {
-                        this.gameStartingSoon = true;
-                        this.stringTimeTillGameStarts = widgetMessage;
-                    }
-                    else
-                    {
-                        this.gameStartingSoon = false;
-                        this.stringTimeTillGameStarts = "";
-                    }
-                }
-                else
-                {
-                    this.canSeeTimeTillStartWidget = false;
-                }
-            }
-
-
-            Widget wintertodtEnergy = client.getWidget(396, 21);
-            if ((wintertodtEnergy != null) && (wintertodtEnergy.getText() != null))
-            {
-                String widgetMessage = wintertodtEnergy.getText();
-                if (!widgetMessage.isEmpty())
-                {
-                    widgetMessage = widgetMessage.split(": ")[1].split("%")[0];
-                    this.wintertodtHp = Integer.parseInt(widgetMessage);
-
-                    if (this.wintertodtHp == 0 && this.gameActive)
-                    {
-                        this.gameActive = false;
-                    }
-
-                    if (!this.gameActive && this.wintertodtHp > 0)
-                    {
-                        this.gameActive = true;
-                    }
-                }
-            }
-        }
-        catch (ArrayIndexOutOfBoundsException e)
-        {
-            log.error("String splitting failure in Wintertodt widget, perhaps a widget message format changed?");
+            case BRUMA_ROOT:
+            case BRUMA_KINDLING:
+                return 25;
+            default:
+                return 0;
         }
     }
 }

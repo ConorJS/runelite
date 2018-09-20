@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018, b krzanich <krzanichb@protonmail.com>
+ * Copyright (c) 2018, terminatusx <jbfleischman@gmail.com>
+ * Copyright (c) 2018, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,197 +25,60 @@
  */
 package net.runelite.client.plugins.wintertodt;
 
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.*;
-import net.runelite.api.Point;
-import net.runelite.api.coords.LocalPoint;
-import net.runelite.client.ui.overlay.Overlay;
-import net.runelite.client.ui.overlay.OverlayLayer;
-import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.OverlayUtil;
-
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics2D;
 import javax.inject.Inject;
-import java.util.List;
-import java.awt.*;
-import java.awt.geom.Area;
+import net.runelite.client.ui.overlay.Overlay;
+import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.ui.overlay.components.LineComponent;
+import net.runelite.client.ui.overlay.components.PanelComponent;
+import net.runelite.client.ui.overlay.components.TitleComponent;
 
-@Slf4j
-public class WintertodtOverlay extends Overlay {
-
-    private final Client client;
+class WintertodtOverlay extends Overlay
+{
     private final WintertodtPlugin plugin;
-    private final WintertodtConfig config;
-
-    private final static int TEXT_HEIGHT = 400;
-    private final static int TEXT_WIDTH = 250;
+    private final PanelComponent panelComponent = new PanelComponent();
 
     @Inject
-    public WintertodtOverlay(Client client, WintertodtPlugin plugin, WintertodtConfig config) {
-        setPosition(OverlayPosition.DYNAMIC);
-        setLayer(OverlayLayer.ALWAYS_ON_TOP);
-        this.client = client;
+    private WintertodtOverlay(WintertodtPlugin plugin)
+    {
         this.plugin = plugin;
-        this.config = config;
+        setPosition(OverlayPosition.BOTTOM_LEFT);
     }
 
     @Override
     public Dimension render(Graphics2D graphics)
     {
-        if ((plugin.playerInWintertodtArea) && (plugin.gameActive))
+        if (!plugin.isInWintertodt())
         {
-            highlightTiles(graphics);
-
-            highlightActionObjects(graphics);
-
-            // TODO
-            //highlightNpcs(graphics);
+            return null;
         }
 
-        if ((plugin.canSeeTimeTillStartWidget) && (plugin.gameStartingSoon) && config.countdownGameStart())
-        {
-            renderCountdown(graphics);
-        }
+        panelComponent.getChildren().clear();
+        panelComponent.setPreferredSize(new Dimension(150, 0));
 
-        return null;
-    }
+        panelComponent.getChildren().add(TitleComponent.builder()
+                .text(plugin.getCurrentActivity().getActionString())
+                .color(plugin.getCurrentActivity() == WintertodtActivity.IDLE ? Color.RED : Color.GREEN)
+                .build());
 
-    private void highlightTiles(Graphics2D graphics)
-    {
-        if (config.highlightEndangeredSquares())
-        {
-            highlightEndangeredTiles(graphics);
-        }
+        String inventoryString = plugin.getNumLogs() > 0 ? plugin.getInventoryScore() + " (" + plugin.getTotalPotentialinventoryScore() + ") pts" : plugin.getInventoryScore() + " pts";
+        panelComponent.getChildren().add(LineComponent.builder()
+                .left("Inventory:")
+                .leftColor(Color.WHITE)
+                .right(inventoryString)
+                .rightColor(plugin.getInventoryScore() > 0 ? Color.GREEN : Color.RED)
+                .build());
 
-        if (config.highlightSafeSquares())
-        {
-            highlightSafeSquares(graphics);
-        }
+        String kindlingString = plugin.getNumLogs() > 0 ? plugin.getNumKindling() + " (" + (plugin.getNumLogs() + plugin.getNumKindling()) + ")" : Integer.toString(plugin.getNumKindling());
+        panelComponent.getChildren().add(LineComponent.builder()
+                .left("Kindling:")
+                .leftColor(Color.WHITE)
+                .right(kindlingString)
+                .rightColor(plugin.getNumKindling() + plugin.getNumLogs() > 0 ? Color.GREEN : Color.RED)
+                .build());
 
-        if (config.highlightPathways())
-        {
-            highlightPathwayTiles(graphics);
-        }
-    }
-
-    // ===== TILES
-    private void highlightEndangeredTiles(Graphics2D graphics)
-    {
-        plugin.snowfallEventsWithDamageToEscape.forEach(location -> {
-            Polygon poly = Perspective.getCanvasTilePoly(client, location.getSnowfallPoint());
-            if (poly != null) {
-                OverlayUtil.renderPolygon(graphics, poly, config.getHighlightEndangeredSquareColor());
-            }
-        });
-    }
-
-    private void highlightSafeSquares(Graphics2D graphics)
-    {
-        plugin.safeSquares.forEach(location -> {
-            Polygon poly = Perspective.getCanvasTilePoly(client, location);
-            if (poly != null) {
-                OverlayUtil.renderPolygonFilled(graphics, poly, config.getHighlightSafeSquareColor(), 128);
-            }
-        });
-    }
-
-    private void highlightPathwayTiles(Graphics2D graphics)
-    {
-        plugin.highlightPathToBrazier.forEach(location -> {
-            Polygon poly = Perspective.getCanvasTilePoly(client, location);
-            if (poly != null) {
-                OverlayUtil.renderPolygonFilled(graphics, poly, config.getHighlightPathColor(), 96);
-            }
-        });
-
-        plugin.highlightPathToBruma.forEach(location -> {
-            Polygon poly = Perspective.getCanvasTilePoly(client, location);
-            if (poly != null) {
-                OverlayUtil.renderPolygonFilled(graphics, poly, config.getHighlightPathColor(), 96);
-            }
-        });
-    }
-
-    // ===== OBJECTS
-    private void highlightActionObjects(Graphics2D graphics)
-    {
-        LocalPoint playerLocation = client.getLocalPlayer().getLocalLocation();
-        Point mousePosition = client.getMouseCanvasPosition();
-        plugin.getHighlightObjects().forEach((object) ->
-        {
-            LocalPoint location = object.getLocalLocation();
-            if (playerLocation.distanceTo(location) <= plugin.MAX_DISTANCE) {
-                Area objectClickbox = object.getClickbox();
-
-                if (objectClickbox != null) {
-                    if (objectClickbox.contains(mousePosition.getX(), mousePosition.getY())) {
-                        graphics.setColor(config.getHighlightActionObjectsColor().darker());
-                    } else {
-                        graphics.setColor(config.getHighlightActionObjectsColor());
-                    }
-                    graphics.draw(objectClickbox);
-
-                    graphics.setColor(new Color(
-                            config.getHighlightActionObjectsColor().getRed(),
-                            config.getHighlightActionObjectsColor().getGreen(),
-                            config.getHighlightActionObjectsColor().getBlue(), 130));
-                    graphics.fill(objectClickbox);
-                }
-            }
-        });
-    }
-
-    // ===== NPCS
-    private void highlightNpcs(Graphics2D graphics)
-    {
-        List<NPC> highlightNpcs = plugin.getHighlightNpcs();
-
-        for (NPC npc : highlightNpcs)
-        {
-            NPCComposition composition = npc.getComposition();
-            Color color = composition.getCombatLevel() > 1 ? Color.YELLOW : Color.ORANGE;
-            if (composition.getConfigs() != null)
-            {
-                NPCComposition transformedComposition = composition.transform();
-                if (transformedComposition == null)
-                {
-                    color = Color.GRAY;
-                }
-                else
-                {
-                    composition = transformedComposition;
-                }
-            }
-
-            String text = String.format("%s (ID: %d) (A: %d) (G: %d)",
-                    composition.getName(),
-                    composition.getId(),
-                    npc.getAnimation(),
-                    npc.getGraphic());
-
-            OverlayUtil.renderActorOverlay(graphics, npc, text, color);
-        }
-    }
-
-    // ===== COUNTDOWN
-    private void renderCountdown(Graphics2D graphics)
-    {
-        int renderPosX = (client.getViewportWidth() - TEXT_WIDTH) / 2;
-        int renderPosY = (client.getViewportHeight() + TEXT_HEIGHT) / 2;
-
-        Font storeFont = graphics.getFont();
-        Color storeColor = graphics.getColor();
-
-        graphics.setFont(graphics.getFont().deriveFont(512F));
-        graphics.setColor(Color.YELLOW);
-        graphics.drawString(plugin.stringTimeTillGameStarts, renderPosX, renderPosY);
-        graphics.setFont(graphics.getFont().deriveFont(536F));
-        graphics.setColor(Color.ORANGE);
-        graphics.drawString(plugin.stringTimeTillGameStarts, renderPosX, renderPosY);
-        graphics.setFont(graphics.getFont().deriveFont(560F));
-        graphics.setColor(Color.RED);
-        graphics.drawString(plugin.stringTimeTillGameStarts, renderPosX, renderPosY);
-
-        graphics.setFont(storeFont);
-        graphics.setColor(storeColor);
+        return panelComponent.render(graphics);
     }
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2018, terminatusx <jbfleischman@gmail.com>
- * Copyright (c) 2018, Adam <Adam@sigterm.info>
+ * Copyright (c) 2018, Robbie McLeod <https://github.com/rbbi>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,36 +22,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.wintertodt;
 
-import java.awt.Color;
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.plugins.wintertodt.config.WintertodtNotifyMode;
+package net.runelite.client.plugins.skillcalculator;
 
-@ConfigGroup("wintertodt")
-public interface WintertodtConfig extends Config
+import javax.swing.JCheckBox;
+import lombok.Getter;
+import lombok.Setter;
+import net.runelite.client.plugins.skillcalculator.beans.SkillDataBonus;
+
+class BonusCheckBox extends JCheckBox
 {
-    @ConfigItem(
-            position = 1,
-            keyName = "notifyCondition",
-            name = "Notify When",
-            description = "Configures when to send notifications"
-    )
-    default WintertodtNotifyMode notifyCondition()
-    {
-        return WintertodtNotifyMode.ONLY_WHEN_INTERRUPTED;
-    }
-
-    @ConfigItem(
-            position = 2,
-            keyName = "damageNotificationColor",
-            name = "Damage Notification Color",
-            description = "Color of damage notification text in chat"
-    )
-    default Color damageNotificationColor()
-    {
-        return Color.CYAN;
-    }
+	@Getter
+	@Setter
+	private SkillDataBonus bonus;
 }
