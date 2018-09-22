@@ -380,14 +380,12 @@ public class ZulrahPlugin extends Plugin
 			{
 				rotation = 1;
 				rotationDetermined = true;
-				System.out.println("ROTATION 1");
 			}
 
 			if (zulrahStyles.get(4).equals(rotation2[4]))
 			{
 				rotation = 2;
 				rotationDetermined = true;
-				System.out.println("ROTATION 2");
 			}
 		}
 
@@ -396,7 +394,6 @@ public class ZulrahPlugin extends Plugin
 		{
 			rotation = 3;
 			rotationDetermined = true;
-			System.out.println("ROTATION 3");
 		}
 
 		// It is rotation 3 but after reset wave
@@ -413,7 +410,6 @@ public class ZulrahPlugin extends Plugin
 			{
 				rotation = 4;
 				rotationDetermined = true;
-				System.out.println("ROTATION 4");
 			}
 		}
 

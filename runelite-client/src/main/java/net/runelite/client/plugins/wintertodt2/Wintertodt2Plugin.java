@@ -510,7 +510,6 @@ public class Wintertodt2Plugin extends Plugin
                     break;
                 default :
                     this.playerAnimatingState = PlayerAnimatingState.UNKNOWN;
-                    System.out.println(newAnimation);
                     break;
             }
 
