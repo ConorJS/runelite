@@ -79,6 +79,7 @@ public class WidgetID
 	public static final int BA_COLLECTOR_GROUP_ID = 486;
 	public static final int BA_DEFENDER_GROUP_ID = 487;
 	public static final int BA_HEALER_GROUP_ID = 488;
+	public static final int BA_REWARD_GROUP_ID = 497;
 	public static final int LEVEL_UP_GROUP_ID = 233;
 	public static final int DIALOG_SPRITE_GROUP_ID = 193;
 	public static final int QUEST_COMPLETED_GROUP_ID = 277;
@@ -119,11 +120,11 @@ public class WidgetID
 
 	static class WorldMap
 	{
-		static final int MAPVIEW = 3;
-		static final int OVERVIEW_MAP = 6;
-		static final int SEARCH = 21;
-		static final int SURFACE_SELECTOR = 29;
-		static final int TOOLTIP = 35;
+		static final int MAPVIEW = 4;
+		static final int OVERVIEW_MAP = 7;
+		static final int SEARCH = 22;
+		static final int SURFACE_SELECTOR = 30;
+		static final int TOOLTIP = 36;
 		static final int OPTION = 42;
 	}
 
@@ -274,7 +275,7 @@ public class WidgetID
 
 	static class LoginClickToPlayScreen
 	{
-		static final int MESSAGE_OF_THE_DAY = 3;
+		static final int MESSAGE_OF_THE_DAY = 4;
 	}
 
 	static class Viewport
@@ -521,6 +522,7 @@ public class WidgetID
 		static final int TO_CALL = 9;
 		static final int ROLE_SPRITE = 10;
 		static final int ROLE = 11;
+		static final int REWARD_TEXT = 57;
 	}
 
 	static class LevelUp
