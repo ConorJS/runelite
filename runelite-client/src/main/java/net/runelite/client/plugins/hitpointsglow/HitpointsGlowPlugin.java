@@ -2,9 +2,10 @@ package net.runelite.client.plugins.hitpointsglow;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.inject.Provides;
-import net.runelite.api.Client;
-import net.runelite.api.Skill;
+import net.runelite.api.*;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.GraphicsObjectCreated;
+import net.runelite.api.events.ProjectileMoved;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
@@ -64,8 +65,16 @@ public class HitpointsGlowPlugin extends Plugin
         this.ratioPlayerHPRemaining = ((double)(client.getBoostedSkillLevel(Skill.HITPOINTS))) /
                         ((double)(client.getRealSkillLevel(Skill.HITPOINTS)));
 
+        if (this.ratioPlayerPrayRemaining > 1.00) {
+            this.ratioPlayerPrayRemaining = 1.00;
+        }
+
         this.ratioPlayerPrayRemaining = ((double)(client.getBoostedSkillLevel(Skill.PRAYER))) /
                         ((double)(client.getRealSkillLevel(Skill.PRAYER)));
+
+        if (this.ratioPlayerPrayRemaining > 1.00) {
+            this.ratioPlayerPrayRemaining = 1.00;
+        }
 
         calculatePlayerGlowColor();
         calculateScreenGlowColor();
