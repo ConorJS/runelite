@@ -37,6 +37,7 @@ public class ProjectileID
 	public static final int TELEKINETIC_SPELL = 143;
 
 	public static final int LIZARDMAN_SHAMAN_AOE = 1293;
+	public static final int LIZARDMAN_SHAMAN_POISON_SHOT = 1294;
 	public static final int CRAZY_ARCHAEOLOGIST_AOE = 1260;
 	public static final int ICE_DEMON_RANGED_AOE = 1324;
 	public static final int ICE_DEMON_ICE_BARRAGE_AOE = 366;

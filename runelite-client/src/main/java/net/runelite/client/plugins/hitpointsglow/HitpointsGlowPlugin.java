@@ -59,6 +59,42 @@ public class HitpointsGlowPlugin extends Plugin
         overlayManager.remove(overlay);
     }
 
+    // ================================================================================ TESTING RAIDS PLUGINS
+    @Subscribe
+    private void onGraphicsObjectCreated(GraphicsObjectCreated event)
+    {
+        final GraphicsObject go = event.getGraphicsObject();
+
+        System.out.println("Graphics object spawned with ID: " + go.getId());
+    }
+
+    @Subscribe
+    private void onProjectile(ProjectileMoved event) {
+
+        final Projectile po = event.getProjectile();
+
+        System.out.println("Graphics object spawned with ID: " + po.getId());
+
+        if (po.getId() == ProjectileID.LIZARDMAN_SHAMAN_POISON_SHOT) {
+            System.out.println("SHAMAN PROJECTILE SPAWNED AT: " + po.getX() + "," + po.getY());
+            System.out.println("SHAMAN PROJECTILE SPAWNED AT (alt): " + po.getX1() + "," + po.getY1());
+            System.out.println("SHAMAN PROJECTILE VELOCITY: " + po.getVelocityX() + "," + po.getVelocityY());
+            System.out.println("SHAMAN PROJECTILE START CYCLE: " + po.getStartMovementCycle());
+            System.out.println("SHAMAN PROJECTILE START CYCLE: " + po.getRemainingCycles());
+            System.out.println("SHAMAN PROJECTILE END CYCLE: " + po.getEndCycle());
+
+            System.out.println("SHAMAN PROJECTILE ENDPOINT (?) " + event.getPosition());
+            System.out.println("SHAMAN PROJECTILE ENDPOINT Z (?) " + event.getZ());
+
+        }
+
+        if (po.getId() == ProjectileID.LIZARDMAN_SHAMAN_AOE) {
+            System.out.print("SHAMAN PROJECTILE COLLIDED WITH GROUND (?)");
+        }
+    }
+
+    // ============================================================================ END TESTING RAIDS PLUGINS
+
     @Subscribe
     public void onGameTick(GameTick event)
     {
