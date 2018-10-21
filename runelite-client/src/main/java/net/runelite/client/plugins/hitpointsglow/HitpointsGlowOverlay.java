@@ -21,8 +21,6 @@ public class HitpointsGlowOverlay extends Overlay
     private static final int peakAlpha = 100;
     private int rotateMemeCycle = 0;
 
-//    private
-
     @Inject
     public HitpointsGlowOverlay(Client client, HitpointsGlowPlugin plugin, HitpointsGlowConfig config)
     {
