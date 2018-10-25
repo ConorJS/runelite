@@ -27,6 +27,7 @@
 package net.runelite.client.plugins.cluescrolls;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.inject.Binder;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
@@ -148,6 +149,12 @@ public class ClueScrollPlugin extends Plugin
 	}
 
 	@Override
+	public void configure(Binder binder)
+	{
+		binder.bind(ClueScrollService.class).to(ClueScrollServiceImpl.class);
+	}
+
+	@Override
 	protected void startUp() throws Exception
 	{
 		overlayManager.add(clueScrollOverlay);
@@ -238,7 +245,18 @@ public class ClueScrollPlugin extends Plugin
 		// if three step clue check for clue scroll pieces
 		if (clue instanceof ThreeStepCrypticClue)
 		{
-			((ThreeStepCrypticClue) clue).checkForParts(client, event, itemManager);
+			if (((ThreeStepCrypticClue) clue).update(client, event, itemManager))
+			{
+				worldMapPointsSet = false;
+				npcsToMark.clear();
+
+				if (config.displayHintArrows())
+				{
+					client.clearHintArrow();
+				}
+
+				checkClueNPCs(clue, client.getCachedNPCs());
+			}
 		}
 	}
 

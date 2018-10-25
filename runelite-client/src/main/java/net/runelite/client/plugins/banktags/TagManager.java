@@ -28,28 +28,46 @@ package net.runelite.client.plugins.banktags;
 import com.google.common.base.Strings;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import net.runelite.api.ItemID;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.game.ItemManager;
 import static net.runelite.client.plugins.banktags.BankTagsPlugin.CONFIG_GROUP;
 import static net.runelite.client.plugins.banktags.BankTagsPlugin.JOINER;
 import static net.runelite.client.plugins.banktags.BankTagsPlugin.SPLITTER;
+import net.runelite.client.plugins.cluescrolls.ClueScrollService;
+import net.runelite.client.plugins.cluescrolls.clues.ClueScroll;
+import net.runelite.client.plugins.cluescrolls.clues.CoordinateClue;
+import net.runelite.client.plugins.cluescrolls.clues.EmoteClue;
+import net.runelite.client.plugins.cluescrolls.clues.FairyRingClue;
+import net.runelite.client.plugins.cluescrolls.clues.HotColdClue;
+import net.runelite.client.plugins.cluescrolls.clues.MapClue;
+import net.runelite.client.plugins.cluescrolls.clues.emote.ItemRequirement;
 import net.runelite.client.util.Text;
 
 @Singleton
 public class TagManager
 {
 	private static final String ITEM_KEY_PREFIX = "item_";
+	private final ItemManager itemManager;
 	private final ConfigManager configManager;
 
+	private final ClueScrollService clueScrollService;
+
 	@Inject
-	private TagManager(final ConfigManager configManager)
+	private TagManager(final ItemManager itemManager, final ConfigManager configManager, final ClueScrollService clueScrollService)
 	{
+		this.itemManager = itemManager;
 		this.configManager = configManager;
+		this.clueScrollService = clueScrollService;
 	}
 
-	public String getTagString(int itemId)
+	String getTagString(int itemId)
 	{
+		itemId = itemManager.canonicalize(itemId);
 		String config = configManager.getConfiguration(CONFIG_GROUP, ITEM_KEY_PREFIX + itemId);
 		if (config == null)
 		{
@@ -64,8 +82,9 @@ public class TagManager
 		return new LinkedHashSet<>(SPLITTER.splitToList(getTagString(itemId).toLowerCase()));
 	}
 
-	public void setTagString(int itemId, String tags)
+	void setTagString(int itemId, String tags)
 	{
+		itemId = itemManager.canonicalize(itemId);
 		if (Strings.isNullOrEmpty(tags))
 		{
 			configManager.unsetConfiguration(CONFIG_GROUP, ITEM_KEY_PREFIX + itemId);
@@ -73,6 +92,15 @@ public class TagManager
 		else
 		{
 			configManager.setConfiguration(CONFIG_GROUP, ITEM_KEY_PREFIX + itemId, tags);
+		}
+	}
+
+	public void addTags(int itemId, final Collection<String> t)
+	{
+		final Collection<String> tags = getTags(itemId);
+		if (tags.addAll(t))
+		{
+			setTags(itemId, tags);
 		}
 	}
 
@@ -92,7 +120,21 @@ public class TagManager
 
 	boolean findTag(int itemId, String search)
 	{
+		if (search.equals("clue") && testClue(itemId))
+		{
+			return true;
+		}
+
 		return getTags(itemId).stream().anyMatch(tag -> tag.contains(Text.standardize(search)));
+	}
+
+	public List<Integer> getItemsForTag(String tag)
+	{
+		final String prefix = CONFIG_GROUP + "." + ITEM_KEY_PREFIX;
+		return configManager.getConfigurationKeys(prefix).stream()
+			.map(item -> Integer.parseInt(item.replace(prefix, "")))
+			.filter(item -> getTags(item).contains(tag))
+			.collect(Collectors.toList());
 	}
 
 	public void removeTag(String tag)
@@ -108,5 +150,40 @@ public class TagManager
 		{
 			setTags(itemId, tags);
 		}
+	}
+
+	private boolean testClue(int itemId)
+	{
+		ClueScroll c = clueScrollService.getClue();
+
+		if (c == null)
+		{
+			return false;
+		}
+
+		if (c instanceof EmoteClue)
+		{
+			EmoteClue emote = (EmoteClue) c;
+
+			for (ItemRequirement ir : emote.getItemRequirements())
+			{
+				if (ir.fulfilledBy(itemId))
+				{
+					return true;
+				}
+			}
+		}
+		else if (c instanceof CoordinateClue || c instanceof HotColdClue || c instanceof FairyRingClue)
+		{
+			return itemId == ItemID.SPADE;
+		}
+		else if (c instanceof MapClue)
+		{
+			MapClue mapClue = (MapClue) c;
+
+			return mapClue.getObjectId() == -1 && itemId == ItemID.SPADE;
+		}
+
+		return false;
 	}
 }
