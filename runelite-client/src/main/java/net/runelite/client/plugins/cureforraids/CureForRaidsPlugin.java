@@ -1,4 +1,4 @@
-package net.runelite.client.cureforraids;
+package net.runelite.client.plugins.cureforraids;
 
 import net.runelite.client.plugins.PluginDescriptor;
 
