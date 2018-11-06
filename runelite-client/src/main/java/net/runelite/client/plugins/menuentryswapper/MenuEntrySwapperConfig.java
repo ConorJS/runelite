@@ -45,7 +45,7 @@ public interface MenuEntrySwapperConfig extends Config
 	@ConfigItem(
 		keyName = "swapAdmire",
 		name = "Admire",
-		description = "Swap Admire with Teleport or Spellbook for mounted skill capes."
+		description = "Swap Admire with Teleport, Spellbook and Perks (max cape) for mounted skill capes."
 	)
 	default boolean swapAdmire()
 	{
@@ -108,6 +108,16 @@ public interface MenuEntrySwapperConfig extends Config
 		description = "Swap Talk-to with Claim Slime from Morytania diaries"
 	)
 	default boolean claimSlime()
+	{
+		return true;
+	}
+
+	@ConfigItem(		
+		keyName = "swapDarkMage",
+		name = "Repairs",
+		description = "Swap Talk-to with Repairs for Dark Mage"
+	)
+	default boolean swapDarkMage()
 	{
 		return true;
 	}
