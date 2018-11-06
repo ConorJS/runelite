@@ -10,9 +10,15 @@ import net.runelite.api.events.*;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.AudioPlayerUtil;
 
 import javax.inject.Inject;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import java.awt.geom.Area;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -54,7 +60,6 @@ public class RedwoodsPlugin extends Plugin
     private boolean idleWoodcutting = true;
 
     private int idleAnimationTickCount = 0;
-    private int playerStandingStillCount = 0;
     private LocalPoint lastTickLocation = null;
 
     @Inject
@@ -128,16 +133,21 @@ public class RedwoodsPlugin extends Plugin
     }
     // TODO: Add a pie graph overlay at redwoods maybe?
 
-    // TODO: Add some sort of a screen glow effect when not woodcutting?
-
     @Subscribe
     private void onGameTick(GameTick event)
     {
         this.atRedwoodsLocation = this.checkIfAtRedwoods();
 
         setRenderTargets();
-        determineIfIdle();
         removeCorruptedBarks();
+
+        // Do idle logic
+        boolean wasPreviouslyIdle = this.idleWoodcutting;
+        determineIfIdle();
+        if (!wasPreviouslyIdle && this.idleWoodcutting)
+        {
+//            playAlertSound();
+        }
 
         // debug shit
         this.debugPrintCycle++;
@@ -146,6 +156,20 @@ public class RedwoodsPlugin extends Plugin
             this.showSystemState();
         }
 
+    }
+
+    private void playAlertSound()
+    {
+        try
+        {
+            AudioInputStream ais = AudioSystem.getAudioInputStream(this.getClass().getResourceAsStream("/util/generic_alert.wav"));
+            AudioPlayerUtil.play(ais);
+
+        }
+        catch (UnsupportedAudioFileException | IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     @Subscribe
