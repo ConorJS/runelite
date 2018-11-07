@@ -17,6 +17,7 @@ public class RedwoodsOverlay extends Overlay
     private final Color LADDER_COLOR = new Color(0, 0, 255, 0);
     private final Color BANK_COLOR = new Color(255, 255, 0, 0);
     private final Color IDLE_SCREEN_GLOW_COLOR = new Color(0, 255, 0);
+    private final Color IDLE_SCREEN_GLOW_COLOR_ALT = new Color(255, 168, 0);
 
     private final Client client;
     private final RedwoodsPlugin plugin;
@@ -48,8 +49,13 @@ public class RedwoodsOverlay extends Overlay
             renderBarkGlow(graphics);
             renderLadderGlow(graphics);
 
-            if (this.plugin.isIdleWoodcutting()) {
-                glowScreen(graphics, IDLE_SCREEN_GLOW_COLOR);
+            if (this.plugin.isNearlyFiveMinuteLogged())
+            {
+                glowScreen(graphics, IDLE_SCREEN_GLOW_COLOR_ALT);
+            }
+            else if (this.plugin.isIdle()) // triggers faster with full inventory
+            {
+                glowScreen(graphics, (this.plugin.isFullInventory() ? IDLE_SCREEN_GLOW_COLOR_ALT : IDLE_SCREEN_GLOW_COLOR));
             }
         }
         return null;
@@ -57,14 +63,8 @@ public class RedwoodsOverlay extends Overlay
 
     private void renderBarkGlow(Graphics2D graphics)
     {
-        for (GameObject barkObject : plugin.getBarks_Renderable())
+        for (GameObject barkObject : plugin.getBarksRenderable())
         {
-            // TODO: Verify that nullcheck is necessary (it probably isn't)
-//            if (barkClickbox != null)
-//            {
-//                highlightActionObjects(graphics, BARK_COLOR, barkClickbox);
-//            }
-
             highlightActionObjects(graphics, BARK_COLOR, barkObject.getClickbox());
         }
     }
@@ -72,30 +72,31 @@ public class RedwoodsOverlay extends Overlay
     private void renderLadderGlow(Graphics2D graphics)
     {
         graphics.setColor(this.LADDER_COLOR);
-        if (plugin.getLadderBottom_Renderable() != null)
+        if (plugin.getLadderBottomRenderable() != null)
         {
-            highlightActionObjects(graphics, LADDER_COLOR, plugin.getLadderBottom_Renderable());
+            highlightActionObjects(graphics, LADDER_COLOR, plugin.getLadderBottomRenderable());
         }
-        if (plugin.getLadderTop_Renderable() != null)
+        if (plugin.getLadderTopRenderable() != null)
         {
-            highlightActionObjects(graphics, LADDER_COLOR, plugin.getLadderTop_Renderable());
+            highlightActionObjects(graphics, LADDER_COLOR, plugin.getLadderTopRenderable());
         }
     }
 
     private void renderBankGlow(Graphics2D graphics)
     {
-        if (plugin.getBankChest_Renderable() != null)
+        if (plugin.getBankChestRenderable() != null)
         {
-            highlightActionObjects(graphics, BANK_COLOR, plugin.getBankChest_Renderable());
+            highlightActionObjects(graphics, BANK_COLOR, plugin.getBankChestRenderable());
         }
-        if (plugin.getBankDeposit_Renderable() != null)
+        if (plugin.getBankDepositRenderable() != null)
         {
-            highlightActionObjects(graphics, BANK_COLOR, plugin.getBankDeposit_Renderable());
+            highlightActionObjects(graphics, BANK_COLOR, plugin.getBankDepositRenderable());
         }
 
     }
 
-    private void glowScreen(Graphics2D graphics, Color color) {
+    private void glowScreen(Graphics2D graphics, Color color)
+    {
         // glow effect logic
         if (this.inverseCycle)
         {
@@ -142,7 +143,9 @@ public class RedwoodsOverlay extends Overlay
             if (clickBox.contains(mousePosition.getX(), mousePosition.getY()))
             {
                 graphics.setColor(color.darker());
-            } else {
+            }
+            else
+            {
                 graphics.setColor(color);
             }
             graphics.draw(clickBox);

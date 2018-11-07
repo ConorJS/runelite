@@ -2,8 +2,7 @@ package net.runelite.client.plugins.redwoods;
 
 import com.google.common.eventbus.Subscribe;
 import lombok.Getter;
-import net.runelite.api.Client;
-import net.runelite.api.GameObject;
+import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
@@ -17,12 +16,8 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.awt.geom.Area;
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @PluginDescriptor(
         name = "Redwoods Helper"
@@ -51,15 +46,26 @@ public class RedwoodsPlugin extends Plugin
 
     private static final int REDWOODS_REGION = 6198;
 
-    private static final int TICKS_BEFORE_IDLE = 10;
+    private static final int WOODCUTTING_ANIMATION_ID = 2846;
+
+    private static final int TICKS_BEFORE_IDLE = 8;
+    private static final int TICKS_BEFORE_IDLE_FULL_INV = 2;
+    private static final int TICKS_BEFORE_WARN_LOGOUT = 465;
 
     @Getter
     private boolean atRedwoodsLocation = false;
 
     @Getter
-    private boolean idleWoodcutting = true;
+    private boolean idle = false;
+
+    @Getter
+    private boolean nearlyFiveMinuteLogged = false;
+
+    @Getter
+    private boolean fullInventory = false;
 
     private int idleAnimationTickCount = 0;
+    private int woodcuttingAnimationTickCount = 0;
     private LocalPoint lastTickLocation = null;
 
     @Inject
@@ -71,49 +77,56 @@ public class RedwoodsPlugin extends Plugin
     @Inject
     private Client client;
 
+    // Debugging system state variables
     private static final int DEBUG_PRINT_PERIODICITY = 4;
     private int debugPrintCycle = 0;
 
+
+    // =================== HIGHLIGHT-ABLE OBJECTS + GETTERS ========================
     private final Set<GameObject> barks = new HashSet<>();
     @Getter
-    private final List<GameObject> barks_Renderable = new ArrayList<>();
+    private final List<GameObject> barksRenderable = new ArrayList<>();
 
     private GameObject bankDeposit;
-    private GameObject bankDeposit_Renderable;
-    protected Area getBankDeposit_Renderable() {
-        if (bankDeposit_Renderable != null && bankDeposit_Renderable.getClickbox() != null)
+    private GameObject bankDepositRenderable;
+    protected Area getBankDepositRenderable()
+    {
+        if (bankDepositRenderable != null && bankDepositRenderable.getClickbox() != null)
         {
-            return bankDeposit_Renderable.getClickbox();
+            return bankDepositRenderable.getClickbox();
         }
         return null;
     }
 
     private GameObject bankChest;
-    private GameObject bankChest_Renderable;
-    protected Area getBankChest_Renderable() {
-        if (bankChest_Renderable != null && bankChest_Renderable.getClickbox() != null)
+    private GameObject bankChestRenderable;
+    protected Area getBankChestRenderable()
+    {
+        if (bankChestRenderable != null && bankChestRenderable.getClickbox() != null)
         {
-            return bankChest_Renderable.getClickbox();
+            return bankChestRenderable.getClickbox();
         }
         return null;
     }
 
     private GameObject ladderTop;
-    private GameObject ladderTop_Renderable;
-    protected Area getLadderTop_Renderable() {
-        if (ladderTop_Renderable != null && ladderTop_Renderable.getClickbox() != null)
+    private GameObject ladderTopRenderable;
+    protected Area getLadderTopRenderable()
+    {
+        if (ladderTopRenderable != null && ladderTopRenderable.getClickbox() != null)
         {
-            return ladderTop_Renderable.getClickbox();
+            return ladderTopRenderable.getClickbox();
         }
         return null;
     }
 
     private GameObject ladderBottom;
-    private GameObject ladderBottom_Renderable;
-    protected Area getLadderBottom_Renderable() {
-        if (ladderBottom_Renderable != null && ladderBottom_Renderable.getClickbox() != null)
+    private GameObject ladderBottomRenderable;
+    protected Area getLadderBottomRenderable()
+    {
+        if (ladderBottomRenderable != null && ladderBottomRenderable.getClickbox() != null)
         {
-            return ladderBottom_Renderable.getClickbox();
+            return ladderBottomRenderable.getClickbox();
         }
         return null;
     }
@@ -128,10 +141,9 @@ public class RedwoodsPlugin extends Plugin
     protected void shutDown()
     {
         this.barks.clear();
-        this.barks_Renderable.clear();
+        this.barksRenderable.clear();
         overlayManager.remove(this.overlay);
     }
-    // TODO: Add a pie graph overlay at redwoods maybe?
 
     @Subscribe
     private void onGameTick(GameTick event)
@@ -141,23 +153,26 @@ public class RedwoodsPlugin extends Plugin
         setRenderTargets();
         removeCorruptedBarks();
 
-        // Do idle logic
-        boolean wasPreviouslyIdle = this.idleWoodcutting;
+        boolean wasPreviouslyIdle = this.idle;
         determineIfIdle();
-        if (!wasPreviouslyIdle && this.idleWoodcutting)
+        this.fullInventory = getInventoryFullState();
+        if (!wasPreviouslyIdle && this.idle)
         {
-//            playAlertSound();
+            //playAlertSound();
         }
 
-        // debug shit
+
+        // Debugging
         this.debugPrintCycle++;
-        if (this.debugPrintCycle == DEBUG_PRINT_PERIODICITY) {
+        if (this.debugPrintCycle == DEBUG_PRINT_PERIODICITY)
+        {
             this.debugPrintCycle = 0;
             this.showSystemState();
         }
 
     }
 
+    // TODO: Doesn't work (makes very weird noise)
     private void playAlertSound()
     {
         try
@@ -182,30 +197,39 @@ public class RedwoodsPlugin extends Plugin
             // Ensure a duplicate (same WorldPoint) bark is not being tracked already
             Object[] barkArray = this.barks.toArray();
             boolean duplicate = false;
-            for (int i = 0; i < barkArray.length; i++) {
-                WorldPoint wp = ((GameObject)(barkArray[i])).getWorldLocation();
-                if (worldPointsEqual(wp, object.getWorldLocation())) {
+            for (Object aBarkArray : barkArray)
+            {
+                WorldPoint wp = ((GameObject) (aBarkArray)).getWorldLocation();
+                if (worldPointsEqual(wp, object.getWorldLocation()))
+                {
                     duplicate = true;
                 }
             }
-            if (!duplicate) {
+            if (!duplicate)
+            {
                 this.barks.add(object);
             }
 
         }
         else if ((object.getId() == BARK_LEFT_DEAD) || (object.getId() == BARK_RIGHT_DEAD))
         {
-            System.out.println("Dead bark spawned at :" + gameObjectFriendlyString(object));
+            // DEBUG
+            //System.out.println("Dead bark spawned at :" + gameObjectFriendlyString(object));
+
             // Kill any zombie living barks on the same world tile
             Object[] barkArray = this.barks.toArray();
             boolean zombieBarkKilled = false;
-            for (int i = 0; i < barkArray.length; i++) {
+            for (Object aBarkArray : barkArray)
+            {
+                if (!zombieBarkKilled)
+                {
+                    WorldPoint wp = ((GameObject) (aBarkArray)).getWorldLocation();
+                    if (worldPointsEqual(wp, object.getWorldLocation()))
+                    {
+                        // DEBUG
+                        //System.out.println("Killed zombie bark: " + gameObjectFriendlyString((GameObject)(barkArray[i])));
 
-                if (!zombieBarkKilled) {
-                    WorldPoint wp = ((GameObject) (barkArray[i])).getWorldLocation();
-                    if (worldPointsEqual(wp, object.getWorldLocation())) {
-                        System.out.println("killed zombie bark: " + gameObjectFriendlyString((GameObject)(barkArray[i])));
-                        this.barks.remove(barkArray[i]);
+                        this.barks.remove(aBarkArray);
                         zombieBarkKilled = true;
                     }
                 }
@@ -226,17 +250,6 @@ public class RedwoodsPlugin extends Plugin
         else if ((object.getId() == BANK_DEPOSIT) && (object.getWorldLocation().equals(BANK_DEPOSIT_LOCATION)))
         {
             this.bankDeposit = object;
-        }
-    }
-
-    // TODO remove this
-    @Subscribe
-    private void onGameObjectChanged(GameObjectChanged event) {
-        GameObject object = event.getGameObject();
-
-        if ((object.getId() == BARK_LEFT) || (object.getId() == BARK_RIGHT))
-        {
-            System.out.println("LOGGER: Bark changed: " + gameObjectFriendlyString(object));
         }
     }
 
@@ -269,38 +282,39 @@ public class RedwoodsPlugin extends Plugin
 
     private void setRenderTargets()
     {
-        this.bankChest_Renderable = (isApparentToPlayer(this.bankChest, true) ?
+        this.bankChestRenderable = (isApparentToPlayer(this.bankChest, true) ?
                 this.bankChest : null);
 
-        this.bankDeposit_Renderable = (isApparentToPlayer(this.bankDeposit, true) ?
+        this.bankDepositRenderable = (isApparentToPlayer(this.bankDeposit, true) ?
                 this.bankDeposit : null);
 
-        this.ladderTop_Renderable = (isApparentToPlayer(this.ladderTop, true) ?
+        this.ladderTopRenderable = (isApparentToPlayer(this.ladderTop, true) ?
                 this.ladderTop : null);
 
-        this.ladderBottom_Renderable = (isApparentToPlayer(this.ladderBottom, true) ?
+        this.ladderBottomRenderable = (isApparentToPlayer(this.ladderBottom, true) ?
                 this.ladderBottom : null);
 
-        this.barks_Renderable.clear();
+        this.barksRenderable.clear();
         for (GameObject barkObject : this.barks)
         {
             if (isApparentToPlayer(barkObject, true))
             {
-                this.barks_Renderable.add(barkObject);
+                this.barksRenderable.add(barkObject);
             }
         }
     }
 
-    private void removeCorruptedBarks() {
+    private void removeCorruptedBarks()
+    {
         Object[] barkArray = this.barks.toArray();
-        for (int i = 0; i < barkArray.length; i++) {
-            WorldPoint wp = ((GameObject)(barkArray[i])).getWorldLocation();
+        for (Object aBarkArray : barkArray)
+        {
+            WorldPoint wp = ((GameObject) (aBarkArray)).getWorldLocation();
 
             if ((wp.getX() > BARK_AREA_UPPER_X) || (wp.getX() < BARK_AREA_LOWER_X) ||
                     (wp.getY() > BARK_AREA_UPPER_Y) || (wp.getY() < BARK_AREA_LOWER_Y))
             {
-                System.out.println("Removing floating bark");
-                this.barks.remove(barkArray[i]);
+                this.barks.remove(aBarkArray);
             }
         }
     }
@@ -309,6 +323,8 @@ public class RedwoodsPlugin extends Plugin
     {
         return client.getLocalPlayer().getWorldLocation().getRegionID() == REDWOODS_REGION;
     }
+
+    // TODO: subscribe to 'Chat message type FILTERED: You get some redwood logs.' and refresh woodcuttingTicks...
 
     // Called once per tick
     private void determineIfIdle()
@@ -327,10 +343,23 @@ public class RedwoodsPlugin extends Plugin
         else
         {
             this.idleAnimationTickCount = 0;
+            this.woodcuttingAnimationTickCount = 0;
+        }
+
+        if (client.getLocalPlayer().getAnimation() == WOODCUTTING_ANIMATION_ID)
+        {
+            this.woodcuttingAnimationTickCount++;
+        }
+        else
+        {
+            this.woodcuttingAnimationTickCount = 0;
         }
 
         this.lastTickLocation = client.getLocalPlayer().getLocalLocation();
-        this.idleWoodcutting = idleAnimationTickCount >= TICKS_BEFORE_IDLE;
+        this.idle = idleAnimationTickCount >=
+                (this.fullInventory ? TICKS_BEFORE_IDLE_FULL_INV : TICKS_BEFORE_IDLE);
+
+        this.nearlyFiveMinuteLogged = woodcuttingAnimationTickCount >= TICKS_BEFORE_WARN_LOGOUT;
     }
 
     private boolean isApparentToPlayer(GameObject object, boolean checkSameLevel)
@@ -355,34 +384,48 @@ public class RedwoodsPlugin extends Plugin
         );
     }
 
-    private boolean worldPointsEqual(WorldPoint a, WorldPoint b) {
+    private boolean worldPointsEqual(WorldPoint a, WorldPoint b)
+    {
         return ((a.getX() == b.getX()) && (a.getY() == b.getY()) && (a.getPlane() == b.getPlane()));
     }
 
-    // debug
-    private void showSystemState()
+
+
+    // ================================= Inventory util =============================
+    private boolean getInventoryFullState()
     {
-        Object[] barkArray = this.barks.toArray();
-
-        for (int i = 0; i < barkArray.length; i++) {
-            System.out.print(" B" + i + ":" + gameObjectFriendlyString((GameObject)(barkArray[i])));
-        }
-
-        System.out.println();
-//        for (GameObject barkObject : this.barks)
-//        System.out.print();
-//        System.out.print();
-
-//        System.out.println("idle for : " + idleAnimationTickCount);
-//
-//        System.out.println("Barks: " + this.barks.size() +
-//                ", Ladder top: " + (this.ladderTop != null) +
-//                ", Ladder bottom: " + (this.ladderBottom != null) +
-//                ", Bank chest: " + (this.bankChest != null) +
-//                ", Bank deposit: " + (this.bankDeposit != null));
+        return getInventorySlotsFree() == 0;
     }
 
-    private String gameObjectFriendlyString(GameObject go) {
+    private int getInventorySlotsFree()
+    {
+        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+        Item[] inventoryItems = new Item[0];
+        if (inventory != null) {
+            inventoryItems = inventory.getItems();
+        }
+        int itemCount = 0;
+        for (Item inventoryItem : inventoryItems) {
+            if (inventoryItem.getId() != -1) {
+                itemCount++;
+            }
+        }
+
+        return 28 - itemCount;
+    }
+
+
+
+    // ================================= Debugging =================================
+
+    // Debug
+    private void showSystemState()
+    {
+        // print state information here...
+    }
+
+    private String gameObjectFriendlyString(GameObject go)
+    {
         String out = "";
         out += go.getWorldLocation();
         return out;
