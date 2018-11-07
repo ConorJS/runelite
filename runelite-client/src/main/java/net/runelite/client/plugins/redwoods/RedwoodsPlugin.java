@@ -172,6 +172,18 @@ public class RedwoodsPlugin extends Plugin
 
     }
 
+    @Subscribe
+    public void onChatMessage(ChatMessage event)
+    {
+        if (event.getType() == ChatMessageType.FILTERED || event.getType() == ChatMessageType.SERVER)
+        {
+            if (event.getMessage().equals("You swing your axe at the tree."))
+            {
+                this.woodcuttingAnimationTickCount = 0;
+            }
+        }
+    }
+
     // TODO: Doesn't work (makes very weird noise)
     private void playAlertSound()
     {
