@@ -6,6 +6,8 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.client.input.MouseAdapter;
+import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -15,6 +17,8 @@ import javax.inject.Inject;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.UnsupportedAudioFileException;
+import javax.swing.*;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Area;
 import java.io.IOException;
 import java.util.*;
@@ -28,10 +32,15 @@ public class RedwoodsPlugin extends Plugin
     private static final int BARK_LEFT_DEAD = 29669;
     private static final int BARK_RIGHT = 29670;
     private static final int BARK_RIGHT_DEAD = 29671;
-    private static final int BARK_AREA_UPPER_X = 1574;
-    private static final int BARK_AREA_LOWER_X = 1567;
-    private static final int BARK_AREA_UPPER_Y = 3496;
-    private static final int BARK_AREA_LOWER_Y = 3479;
+//    private static final int BARK_AREA_UPPER_X = 1574;
+//    private static final int BARK_AREA_LOWER_X = 1567;
+//    private static final int BARK_AREA_UPPER_Y = 3496;
+//    private static final int BARK_AREA_LOWER_Y = 3479;
+    // Revision
+    private static final int BARK_AREA_UPPER_X = 1573;
+    private static final int BARK_AREA_LOWER_X = 1568;
+    private static final int BARK_AREA_UPPER_Y = 3483;
+    private static final int BARK_AREA_LOWER_Y = 3480;
 
     private static final int LADDER_BOTTOM = 28857;
     private final WorldPoint LADDER_BOTTOM_LOCATION = new WorldPoint(1575, 3483, 0);
@@ -76,6 +85,9 @@ public class RedwoodsPlugin extends Plugin
 
     @Inject
     private Client client;
+
+    @Inject
+    private MouseManager mouseManager;
 
     // Debugging system state variables
     private static final int DEBUG_PRINT_PERIODICITY = 4;
@@ -135,6 +147,21 @@ public class RedwoodsPlugin extends Plugin
     protected void startUp()
     {
         overlayManager.add(this.overlay);
+
+        // Left/right clicking to reset 5-minute log timer
+        mouseManager.registerMouseListener(new MouseAdapter()
+        {
+            @Override
+            public MouseEvent mousePressed(MouseEvent mouseEvent)
+            {
+                if (SwingUtilities.isLeftMouseButton(mouseEvent) || (SwingUtilities.isRightMouseButton(mouseEvent)))
+                {
+                    woodcuttingAnimationTickCount = 0;
+                }
+
+                return mouseEvent;
+            }
+        });
     }
 
     @Override
