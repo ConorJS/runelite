@@ -32,10 +32,7 @@ public class RedwoodsPlugin extends Plugin
     private static final int BARK_LEFT_DEAD = 29669;
     private static final int BARK_RIGHT = 29670;
     private static final int BARK_RIGHT_DEAD = 29671;
-//    private static final int BARK_AREA_UPPER_X = 1574;
-//    private static final int BARK_AREA_LOWER_X = 1567;
-//    private static final int BARK_AREA_UPPER_Y = 3496;
-//    private static final int BARK_AREA_LOWER_Y = 3479;
+    
     // Revision
     private static final int BARK_AREA_UPPER_X = 1573;
     private static final int BARK_AREA_LOWER_X = 1568;
