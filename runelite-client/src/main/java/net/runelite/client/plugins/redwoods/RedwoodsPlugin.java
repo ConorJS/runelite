@@ -33,7 +33,6 @@ public class RedwoodsPlugin extends Plugin
     private static final int BARK_RIGHT = 29670;
     private static final int BARK_RIGHT_DEAD = 29671;
     
-    // Revision
     private static final int BARK_AREA_UPPER_X = 1573;
     private static final int BARK_AREA_LOWER_X = 1568;
     private static final int BARK_AREA_UPPER_Y = 3483;
@@ -49,7 +48,6 @@ public class RedwoodsPlugin extends Plugin
     private final WorldPoint BANK_DEPOSIT_LOCATION = new WorldPoint(1589, 3476, 0);
 
     private static final int HIGHLIGHT_DISTANCE = 2250;
-
     private static final int REDWOODS_REGION = 6198;
 
     private static final int WOODCUTTING_ANIMATION_ID = 2846;
@@ -98,7 +96,7 @@ public class RedwoodsPlugin extends Plugin
 
     private GameObject bankDeposit;
     private GameObject bankDepositRenderable;
-    protected Area getBankDepositRenderable()
+    Area getBankDepositRenderable()
     {
         if (bankDepositRenderable != null && bankDepositRenderable.getClickbox() != null)
         {
@@ -109,7 +107,7 @@ public class RedwoodsPlugin extends Plugin
 
     private GameObject bankChest;
     private GameObject bankChestRenderable;
-    protected Area getBankChestRenderable()
+    Area getBankChestRenderable()
     {
         if (bankChestRenderable != null && bankChestRenderable.getClickbox() != null)
         {
@@ -120,7 +118,7 @@ public class RedwoodsPlugin extends Plugin
 
     private GameObject ladderTop;
     private GameObject ladderTopRenderable;
-    protected Area getLadderTopRenderable()
+    Area getLadderTopRenderable()
     {
         if (ladderTopRenderable != null && ladderTopRenderable.getClickbox() != null)
         {
@@ -131,7 +129,7 @@ public class RedwoodsPlugin extends Plugin
 
     private GameObject ladderBottom;
     private GameObject ladderBottomRenderable;
-    protected Area getLadderBottomRenderable()
+    Area getLadderBottomRenderable()
     {
         if (ladderBottomRenderable != null && ladderBottomRenderable.getClickbox() != null)
         {
@@ -398,6 +396,7 @@ public class RedwoodsPlugin extends Plugin
         this.nearlyFiveMinuteLogged = woodcuttingAnimationTickCount >= TICKS_BEFORE_WARN_LOGOUT;
     }
 
+    @SuppressWarnings("SameParameterValue")
     private boolean isApparentToPlayer(GameObject object, boolean checkSameLevel)
     {
         if ((checkSameLevel) &&

@@ -16,19 +16,20 @@ public class RedwoodsOverlay extends Overlay
     private final Color BARK_COLOR = new Color(0, 255, 0, 0);
     private final Color LADDER_COLOR = new Color(0, 0, 255, 0);
     private final Color BANK_COLOR = new Color(255, 255, 0, 0);
-    private final Color IDLE_SCREEN_GLOW_COLOR = new Color(0, 255, 0);
-    private final Color IDLE_SCREEN_GLOW_COLOR_ALT = new Color(255, 168, 0);
+    private final Color IDLE_SCREEN_GLOW_COLOR_GREEN = new Color(0, 255, 0);
+    private final Color IDLE_SCREEN_GLOW_COLOR_ORANGE = new Color(255, 144, 0);
+    private final Color IDLE_SCREEN_GLOW_COLOR_YELLOW = new Color(255, 255, 0);
 
     private final Client client;
     private final RedwoodsPlugin plugin;
-//    private final RedwoodsConfig config;
+    //private final RedwoodsConfig config;
 
     private int renderCycle = 100;
     private boolean inverseCycle = false;
-    private int peakAlpha = 100; // peak transparency value for glow effect
-    private int glowSpeed = 10;
+    private static final int PEAK_TRANSPARENCY = 100; // peak transparency value for glow effect
+    private static final int GLOW_SPEED = 10;
     // based on FPS, render cycle sensitive vals. shift by max of this amt. per frame
-    protected static final int maxGlowSpeed = 15;
+    private static final int MAX_GLOW_SPEED = 15;
 
     @Inject
     public RedwoodsOverlay(Client client, RedwoodsPlugin plugin) // RedwoodsConfig config
@@ -37,7 +38,7 @@ public class RedwoodsOverlay extends Overlay
         setLayer(OverlayLayer.ALWAYS_ON_TOP);
         this.client = client;
         this.plugin = plugin;
-//        this.config = config;
+        //this.config = config;
     }
 
     @Override
@@ -51,11 +52,11 @@ public class RedwoodsOverlay extends Overlay
 
             if (this.plugin.isNearlyFiveMinuteLogged())
             {
-                glowScreen(graphics, IDLE_SCREEN_GLOW_COLOR_ALT);
+                glowScreen(graphics, IDLE_SCREEN_GLOW_COLOR_ORANGE);
             }
             else if (this.plugin.isIdle()) // triggers faster with full inventory
             {
-                glowScreen(graphics, (this.plugin.isFullInventory() ? IDLE_SCREEN_GLOW_COLOR_ALT : IDLE_SCREEN_GLOW_COLOR));
+                glowScreen(graphics, (this.plugin.isFullInventory() ? IDLE_SCREEN_GLOW_COLOR_YELLOW : IDLE_SCREEN_GLOW_COLOR_GREEN));
             }
         }
         return null;
@@ -100,20 +101,20 @@ public class RedwoodsOverlay extends Overlay
         // glow effect logic
         if (this.inverseCycle)
         {
-            if (this.renderCycle > this.peakAlpha)
+            if (this.renderCycle > this.PEAK_TRANSPARENCY)
             {
                 this.inverseCycle = false;
             }
-            this.renderCycle += this.glowSpeed;
+            this.renderCycle += this.GLOW_SPEED;
         }
         else
         {
             // we turn around before we hit zero
-            if (this.renderCycle <= this.maxGlowSpeed + 1)
+            if (this.renderCycle <= RedwoodsOverlay.MAX_GLOW_SPEED + 1)
             {
                 this.inverseCycle = true;
             }
-            this.renderCycle -= this.glowSpeed;
+            this.renderCycle -= this.GLOW_SPEED;
         }
 
         Color colorWithAlpha = new Color(color.getRed(), color.getGreen(), color.getBlue(),
@@ -123,7 +124,7 @@ public class RedwoodsOverlay extends Overlay
 
     private void renderScreenShade(Graphics2D graphics, Color color)
     {
-        // force low alpha so we dont accidentally mute the display
+        // force low alpha so we don't accidentally mute the display
         Color transparentGuardColor = new Color(color.getRed(), color.getGreen(), color.getBlue(),
                 color.getAlpha() <= 75 ? color.getAlpha() : 75);
 
