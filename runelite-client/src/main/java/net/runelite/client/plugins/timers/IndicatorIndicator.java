@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Adam <Adam@sigterm.info>
+ * Copyright (c) 2018, Tyler <https://github.com/tylerthardy>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,15 +22,36 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.game;
+package net.runelite.client.plugins.timers;
 
-import lombok.Value;
-import net.runelite.api.coords.LocalPoint;
+import java.awt.Color;
+import java.awt.Image;
+import lombok.Getter;
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.ui.overlay.infobox.InfoBox;
+import net.runelite.client.ui.overlay.infobox.InfoBoxPriority;
 
-@Value
-public class ItemStack
+public class IndicatorIndicator extends InfoBox
 {
-	private final int id;
-	private final int quantity;
-	private final LocalPoint location;
+	@Getter
+	private final GameIndicator indicator;
+
+	IndicatorIndicator(GameIndicator indicator, Image image, Plugin plugin)
+	{
+		super(image, plugin);
+		this.indicator = indicator;
+		setPriority(InfoBoxPriority.MED);
+	}
+
+	@Override
+	public String getText()
+	{
+		return indicator.getText();
+	}
+
+	@Override
+	public Color getTextColor()
+	{
+		return indicator.getTextColor();
+	}
 }

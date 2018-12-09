@@ -22,15 +22,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.game;
+package net.runelite.client.config;
 
-import lombok.Value;
-import net.runelite.api.coords.LocalPoint;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-@Value
-public class ItemStack
+/**
+ * Used with ConfigItem, describes valid int range for a config item.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+@Documented
+public @interface Range
 {
-	private final int id;
-	private final int quantity;
-	private final LocalPoint location;
+	int min() default Integer.MIN_VALUE;
+
+	int max() default Integer.MAX_VALUE;
 }
