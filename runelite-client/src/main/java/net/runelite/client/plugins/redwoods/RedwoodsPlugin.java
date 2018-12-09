@@ -1,6 +1,6 @@
 package net.runelite.client.plugins.redwoods;
 
-import com.google.common.eventbus.Subscribe;
+import net.runelite.client.eventbus.Subscribe;
 import lombok.Getter;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
@@ -168,7 +168,7 @@ public class RedwoodsPlugin extends Plugin
     }
 
     @Subscribe
-    private void onGameTick(GameTick event)
+    public void onGameTick(GameTick event)
     {
         this.atRedwoodsLocation = this.checkIfAtRedwoods();
 
@@ -183,7 +183,6 @@ public class RedwoodsPlugin extends Plugin
             //playAlertSound();
         }
 
-
         // Debugging
         this.debugPrintCycle++;
         if (this.debugPrintCycle == DEBUG_PRINT_PERIODICITY)
@@ -191,7 +190,6 @@ public class RedwoodsPlugin extends Plugin
             this.debugPrintCycle = 0;
             this.showSystemState();
         }
-
     }
 
     @Subscribe

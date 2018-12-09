@@ -1,6 +1,6 @@
 package net.runelite.client.plugins.hitpointsglow;
 
-import com.google.common.eventbus.Subscribe;
+import net.runelite.client.eventbus.Subscribe;
 import com.google.inject.Provides;
 import net.runelite.api.*;
 import net.runelite.api.events.GameTick;

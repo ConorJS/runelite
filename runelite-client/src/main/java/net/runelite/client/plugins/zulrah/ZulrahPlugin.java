@@ -68,93 +68,9 @@ public class ZulrahPlugin extends Plugin
 		overlayManager.remove(zulrahOverlay);
 	}
 
-	// Set the Zulrah object
-	@Subscribe
-	public void zulrahVisible(NpcSpawned event)
-	{
-		npc = event.getNpc();
-		if (isNpcZulrah(npc.getId()))
-		{
-			zulrah = new Zulrah(npc);
-			zulrahHasSpawned = true;
-			zulrahExists = true;
-		}
-	}
-
-	// When Zulrah despawns
-	@Subscribe
-	public void zulrahDespawn(NpcDespawned event)
-	{
-		npc = event.getNpc();
-		if (isNpcZulrah(npc.getId()))
-		{
-			zulrahCleanUp();
-		}
-	}
-
-	// Called if Zulrah dies or if Zulrah no longer exists
-	public void zulrahCleanUp()
-	{
-		rotation = 0;
-		zulrahHasSpawned = false;
-		rotationDetermined = false;
-		tickCounter = 0;
-		zulrah = null;
-		npc = null;
-		zulrahStyles = new ArrayList<>();
-		init_imgs = new ArrayList<>();
-		restart = null;
-		reset = false;
-		rotation1_imgs = new ArrayList<>();
-		rotation2_imgs = new ArrayList<>();
-		rotation3_imgs = new ArrayList<>();
-		rotation4_imgs = new ArrayList<>();
-		zulrahOverlay.zulrahCleanup();
-	}
-
-	private BufferedImage getImage(String path)
-	{
-		BufferedImage image = null;
-		try
-		{
-			synchronized (ImageIO.class)
-			{
-				image = ImageIO.read(ZulrahOverlay.class.getResourceAsStream(path));
-			}
-		}
-		catch (IOException e)
-		{
-			log.warn("Error fetching image" , e);
-		}
-		image = resize(image);
-		return image;
-	}
-
-	private static BufferedImage resize(BufferedImage img)
-	{
-		int width = 70;
-		int height = 70;
-		Image temp = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-		BufferedImage newImg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-		Graphics2D g2d = newImg.createGraphics();
-		g2d.drawImage(temp, 0, 0, null);
-		g2d.dispose();
-
-		return newImg;
-	}
-
-	// Check if the npc is zulrah based on the id of NpcSpawned event
-	public static boolean isNpcZulrah(int npcId)
-	{
-		return npcId == NpcID.ZULRAH ||
-				npcId == NpcID.ZULRAH_2043 ||
-				npcId == NpcID.ZULRAH_2044;
-	}
-
 	// Keep checking Zulrah to determine the rotation / style change
 	@Subscribe
-	public void checkZulrah(GameTick onTick)
+	public void onGameTick(GameTick onTick)
 	{
 		if (zulrahHasSpawned && zulrahExists) // Make sure that Zulrah exists in the first place
 		{
@@ -247,6 +163,90 @@ public class ZulrahPlugin extends Plugin
 
 			}
 		}
+	}
+
+	// Set the Zulrah object
+	@Subscribe
+	public void onNpcSpawn(NpcSpawned event)
+	{
+		npc = event.getNpc();
+		if (isNpcZulrah(npc.getId()))
+		{
+			zulrah = new Zulrah(npc);
+			zulrahHasSpawned = true;
+			zulrahExists = true;
+		}
+	}
+
+	// When Zulrah despawns
+	@Subscribe
+	public void onNpcDespawn(NpcDespawned event)
+	{
+		npc = event.getNpc();
+		if (isNpcZulrah(npc.getId()))
+		{
+			zulrahCleanUp();
+		}
+	}
+
+	// Called if Zulrah dies or if Zulrah no longer exists
+	public void zulrahCleanUp()
+	{
+		rotation = 0;
+		zulrahHasSpawned = false;
+		rotationDetermined = false;
+		tickCounter = 0;
+		zulrah = null;
+		npc = null;
+		zulrahStyles = new ArrayList<>();
+		init_imgs = new ArrayList<>();
+		restart = null;
+		reset = false;
+		rotation1_imgs = new ArrayList<>();
+		rotation2_imgs = new ArrayList<>();
+		rotation3_imgs = new ArrayList<>();
+		rotation4_imgs = new ArrayList<>();
+		zulrahOverlay.zulrahCleanup();
+	}
+
+	private BufferedImage getImage(String path)
+	{
+		BufferedImage image = null;
+		try
+		{
+			synchronized (ImageIO.class)
+			{
+				image = ImageIO.read(ZulrahOverlay.class.getResourceAsStream(path));
+			}
+		}
+		catch (IOException e)
+		{
+			log.warn("Error fetching image" , e);
+		}
+		image = resize(image);
+		return image;
+	}
+
+	private static BufferedImage resize(BufferedImage img)
+	{
+		int width = 70;
+		int height = 70;
+		Image temp = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+		BufferedImage newImg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+
+		Graphics2D g2d = newImg.createGraphics();
+		g2d.drawImage(temp, 0, 0, null);
+		g2d.dispose();
+
+		return newImg;
+	}
+
+	// Check if the npc is zulrah based on the id of NpcSpawned event
+	public static boolean isNpcZulrah(int npcId)
+	{
+		return npcId == NpcID.ZULRAH ||
+				npcId == NpcID.ZULRAH_2043 ||
+				npcId == NpcID.ZULRAH_2044;
 	}
 
 	// Check if Zulrah still exists
