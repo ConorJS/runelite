@@ -22,18 +22,19 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.http.service.session;
+package net.runelite.http.service.loottracker;
 
 import java.time.Instant;
-import java.util.UUID;
 import lombok.Data;
+import net.runelite.http.api.loottracker.LootRecordType;
 
 @Data
-public class SessionEntry
+class LootResult
 {
-	private int id;
-	private UUID uuid;
-	private String ip;
-	private Instant start;
-	private Instant last;
+	private int killId;
+	private Instant time;
+	private LootRecordType type;
+	private String eventId;
+	private int itemId;
+	private int itemQuantity;
 }

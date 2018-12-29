@@ -77,6 +77,7 @@ import static net.runelite.client.plugins.gpu.GLUtil.glDeleteRenderbuffers;
 import static net.runelite.client.plugins.gpu.GLUtil.glDeleteTexture;
 import static net.runelite.client.plugins.gpu.GLUtil.glDeleteVertexArrays;
 import static net.runelite.client.plugins.gpu.GLUtil.glGenBuffers;
+import static net.runelite.client.plugins.gpu.GLUtil.glGetInteger;
 import static net.runelite.client.plugins.gpu.GLUtil.glGenFrameBuffer;
 import static net.runelite.client.plugins.gpu.GLUtil.glGenRenderbuffer;
 import static net.runelite.client.plugins.gpu.GLUtil.glGenTexture;
@@ -85,6 +86,7 @@ import static net.runelite.client.plugins.gpu.GLUtil.inputStreamToString;
 import net.runelite.client.plugins.gpu.config.AntiAliasingMode;
 import net.runelite.client.plugins.gpu.template.Template;
 import net.runelite.client.ui.DrawManager;
+import net.runelite.client.util.OSType;
 
 @PluginDescriptor(
 	name = "GPU",
@@ -420,8 +422,6 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 
 			// force main buffer provider rebuild to turn off alpha channel
 			client.resizeCanvas();
-
-			client.setReplaceCanvasNextFrame(true);
 		});
 	}
 
@@ -438,7 +438,35 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 		glGeomShader = gl.glCreateShader(gl.GL_GEOMETRY_SHADER);
 		glFragmentShader = gl.glCreateShader(gl.GL_FRAGMENT_SHADER);
 
-		Function<String, String> resourceLoader = (s) -> inputStreamToString(getClass().getResourceAsStream(s));
+		final String glVersionHeader;
+
+		if (OSType.getOSType() == OSType.Linux)
+		{
+			glVersionHeader =
+				"#version 420\n" +
+				"#extension GL_ARB_compute_shader : require\n" +
+				"#extension GL_ARB_shader_storage_buffer_object : require\n";
+		}
+		else
+		{
+			glVersionHeader = "#version 430\n";
+		}
+
+		Function<String, String> resourceLoader = (s) ->
+		{
+			if (s.endsWith(".glsl"))
+			{
+				return inputStreamToString(getClass().getResourceAsStream(s));
+			}
+
+			if (s.equals("version_header"))
+			{
+				return glVersionHeader;
+			}
+
+			return "";
+		};
+
 		Template template = new Template(resourceLoader);
 		String source = template.process(resourceLoader.apply("geom.glsl"));
 
@@ -871,7 +899,11 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 				|| lastAntiAliasingMode != antiAliasingMode)
 			{
 				shutdownSceneFbo();
-				initSceneFbo(stretchedCanvasWidth, stretchedCanvasHeight, antiAliasingMode.getSamples());
+
+				final int maxSamples = glGetInteger(gl, gl.GL_MAX_SAMPLES);
+				final int samples = Math.min(antiAliasingMode.getSamples(), maxSamples);
+
+				initSceneFbo(stretchedCanvasWidth, stretchedCanvasHeight, samples);
 
 				lastStretchedCanvasWidth = stretchedCanvasWidth;
 				lastStretchedCanvasHeight = stretchedCanvasHeight;

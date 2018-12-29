@@ -22,79 +22,64 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.http.service.session;
+package net.runelite.http.service.xtea;
 
-import java.time.Instant;
-import java.util.UUID;
-import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.stream.Collectors;
+import net.runelite.http.api.xtea.XteaKey;
+import net.runelite.http.api.xtea.XteaRequest;
+import net.runelite.http.service.util.exception.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import static org.springframework.web.bind.annotation.RequestMethod.POST;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/session")
-public class SessionController
+@RequestMapping("/xtea")
+public class XteaController
 {
-	private final SessionService sessionService;
-
 	@Autowired
-	public SessionController(SessionService sessionService)
-	{
-		this.sessionService = sessionService;
-	}
+	private XteaService xteaService;
 
-	private void createSession(HttpServletRequest request, UUID uuid)
+	@RequestMapping(method = POST)
+	public void submit(@RequestBody XteaRequest xteaRequest)
 	{
-		String addr = request.getRemoteAddr();
-		Instant now = Instant.now();
-		SessionEntry sessionEntry = new SessionEntry();
-		sessionEntry.setUuid(uuid);
-		sessionEntry.setIp(addr);
-		sessionEntry.setStart(now);
-		sessionEntry.setLast(now);
-		sessionService.createSession(sessionEntry);
+		xteaService.submit(xteaRequest);
 	}
 
 	@RequestMapping
-	public UUID get(HttpServletRequest request)
+	public List<XteaKey> get()
 	{
-		UUID uuid = UUID.randomUUID();
-		createSession(request, uuid);
-		return uuid;
+		return xteaService.get().stream()
+			.map(XteaController::entryToKey)
+			.collect(Collectors.toList());
 	}
 
-	@RequestMapping("/ping")
-	public ResponseEntity ping(HttpServletRequest request, @RequestParam("session") UUID uuid)
+	@RequestMapping("/{region}")
+	public XteaKey getRegion(@PathVariable int region)
 	{
-		int updated = sessionService.updateLast(uuid);
-		if (updated == 0)
+		XteaEntry xteaRegion = xteaService.getRegion(region);
+		if (xteaRegion == null)
 		{
-			// create the session anyway
-			createSession(request, uuid);
-			return ResponseEntity.ok().build();
+			throw new NotFoundException();
 		}
 
-		return ResponseEntity.ok().build();
+		return entryToKey(xteaRegion);
 	}
 
-	@DeleteMapping
-	public ResponseEntity delete(@RequestParam("session") UUID uuid)
+	private static XteaKey entryToKey(XteaEntry xe)
 	{
-		int deleted = sessionService.deleteSession(uuid);
-		if (deleted == 0)
+		XteaKey xteaKey = new XteaKey();
+		xteaKey.setRegion(xe.getRegion());
+		xteaKey.setKeys(new int[]
 		{
-			return ResponseEntity.notFound().build();
-		}
-
-		return ResponseEntity.ok().build();
-	}
-
-	@RequestMapping("/count")
-	public int count()
-	{
-		return sessionService.getCount();
+			xe.getKey1(),
+			xe.getKey2(),
+			xe.getKey3(),
+			xe.getKey4()
+		});
+		return xteaKey;
 	}
 }
