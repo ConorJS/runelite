@@ -22,17 +22,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#version 330
+package net.runelite.client.events;
 
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aTexCoord;
-
-out vec2 TexCoord;
-
-void main()
+public abstract class ChatInput
 {
-	gl_Position = vec4(aPos, 1.0);
-
-	// Flip the UV because it's pre-flipped in the ui texture buffer, but we don't need it to be flipped here.
-	TexCoord = vec2(aTexCoord.x, 1 - aTexCoord.y);
+	public abstract void resume();
 }
