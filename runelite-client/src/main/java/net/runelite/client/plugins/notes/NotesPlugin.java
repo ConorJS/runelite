@@ -27,7 +27,7 @@ package net.runelite.client.plugins.notes;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import javax.inject.Inject;
-import net.runelite.api.events.SessionOpen;
+import net.runelite.client.events.SessionOpen;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -65,7 +65,7 @@ public class NotesPlugin extends Plugin
 		panel = injector.getInstance(NotesPanel.class);
 		panel.init(config);
 
-		final BufferedImage icon = ImageUtil.getResourceStreamFromClass(getClass(), "notes_icon.png");
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "notes_icon.png");
 
 		navButton = NavigationButton.builder()
 			.tooltip("Notes")

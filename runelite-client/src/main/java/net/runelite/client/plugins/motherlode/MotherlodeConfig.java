@@ -28,6 +28,7 @@ package net.runelite.client.plugins.motherlode;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.Units;
 
 @ConfigGroup("motherlode")
 public interface MotherlodeConfig extends Config
@@ -54,9 +55,10 @@ public interface MotherlodeConfig extends Config
 
 	@ConfigItem(
 		keyName = "statTimeout",
-		name = "Reset stats (minutes)",
+		name = "Reset stats",
 		description = "Configures the time until statistics are reset"
 	)
+	@Units(Units.MINUTES)
 	default int statTimeout()
 	{
 		return 5;
@@ -110,5 +112,35 @@ public interface MotherlodeConfig extends Config
 	default boolean showGemsFound()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "showOresFound",
+		name = "Show ores found",
+		description = "Shows the ores found during current mining session"
+	)
+	default boolean showOresFound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "showBrokenStruts",
+		name = "Show broken struts",
+		description = "Shows broken water wheel struts"
+	)
+	default boolean showBrokenStruts()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "showLootIcons",
+		name = "Show ore icons",
+		description = "Display collected ores and gems as item images instead of text"
+	)
+	default boolean showLootIcons()
+	{
+		return false;
 	}
 }

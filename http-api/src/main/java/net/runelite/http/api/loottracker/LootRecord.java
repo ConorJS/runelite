@@ -24,6 +24,7 @@
  */
 package net.runelite.http.api.loottracker;
 
+import java.time.Instant;
 import java.util.Collection;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,5 +37,7 @@ public class LootRecord
 {
 	private String eventId;
 	private LootRecordType type;
+	private Object metadata;
 	private Collection<GameItem> drops;
+	private Instant time;
 }
